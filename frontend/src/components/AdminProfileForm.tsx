@@ -70,21 +70,14 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
     if (!files || !profile) return;
     setUploading(true);
     try {
+      const newItems = [];
       for (const file of Array.from(files)) {
         const { key } = await api.adminUploadFile(file, profile._id, "media");
         const type = file.type.startsWith("video/") ? "video" : "image";
-        setMediaItems((prev) => [
-          ...prev,
-          { _id: key, type, s3Key: key, order: prev.length, url: "" },
-        ]);
+        newItems.push({ type, s3Key: key, order: mediaItems.length + newItems.length });
       }
-      const currentMedia = [...mediaItems];
-      for (const file of Array.from(files)) {
-        const { key } = await api.adminUploadFile(file, profile._id, "media");
-        const type = file.type.startsWith("video/") ? "video" : "image";
-        currentMedia.push({ _id: key, type, s3Key: key, order: currentMedia.length, url: "" });
-      }
-      await api.adminUpdateProfile(profile._id, { media: currentMedia } as any);
+      const allMedia = [...mediaItems.map(({ _id, url, thumbnailUrl, ...rest }) => rest), ...newItems];
+      await api.adminUpdateProfile(profile._id, { media: allMedia } as any);
       onSaved();
     } catch (err) {
       console.error(err);
@@ -98,8 +91,10 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
     if (!profile || !confirm("Delete this media item?")) return;
     try {
       await api.adminDeleteMedia(s3Key);
-      const updated = mediaItems.filter((m) => m.s3Key !== s3Key);
-      setMediaItems(updated);
+      const updated = mediaItems
+        .filter((m) => m.s3Key !== s3Key)
+        .map(({ _id, url, thumbnailUrl, ...rest }) => rest);
+      setMediaItems(updated as any);
       await api.adminUpdateProfile(profile._id, { media: updated } as any);
     } catch (err) {
       console.error(err);
