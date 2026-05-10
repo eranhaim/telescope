@@ -9,7 +9,7 @@ export default function MediaGrid({ media, onItemClick }: Props) {
   const sorted = [...media].sort((a, b) => a.order - b.order);
 
   return (
-    <div className="grid grid-cols-3 gap-0.5">
+    <div className="grid grid-cols-3 gap-0.5 sm:rounded-xl sm:overflow-hidden">
       {sorted.map((item, i) => (
         <button
           key={item._id}

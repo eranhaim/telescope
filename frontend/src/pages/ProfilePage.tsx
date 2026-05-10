@@ -49,6 +49,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-dark-bg">
+      <div className="max-w-2xl mx-auto">
       <header className="px-4 pt-3 pb-2">
         <button
           onClick={goBack}
@@ -136,6 +137,7 @@ export default function ProfilePage() {
       </div>
 
       <MediaGrid media={sortedMedia} onItemClick={setViewerIndex} />
+      </div>
 
       {viewerIndex !== null && (
         <MediaViewer
