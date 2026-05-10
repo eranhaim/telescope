@@ -45,6 +45,7 @@ export default function ExplorePage() {
           <h1
             className="text-4xl sm:text-5xl font-black tracking-tight bg-clip-text text-transparent animate-[shimmer_3s_ease-in-out_infinite]"
             style={{
+              fontFamily: "'Heebo', sans-serif",
               backgroundImage: "linear-gradient(90deg, #c084fc, #f472b6, #e879f9, #c084fc, #f472b6)",
               backgroundSize: "200% 100%",
             }}
