@@ -5,6 +5,7 @@ import type { Profile } from "../api/client";
 import ProfileCard from "../components/ProfileCard";
 
 const TABS = [
+  { key: "", label: "All", icon: "✨" },
   { key: "trending", label: "Trending", icon: "🔥" },
   { key: "popular", label: "Most Popular", icon: "💎" },
   { key: "new", label: "New", icon: "🌟" },
@@ -13,7 +14,7 @@ const TABS = [
 export default function ExplorePage() {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [activeTab, setActiveTab] = useState("trending");
+  const [activeTab, setActiveTab] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -22,7 +23,7 @@ export default function ExplorePage() {
     setLoading(true);
     const searchVal = search.trim() || undefined;
     api
-      .getProfiles(activeTab, searchVal)
+      .getProfiles(activeTab || undefined, searchVal)
       .then(setProfiles)
       .catch(console.error)
       .finally(() => setLoading(false));
