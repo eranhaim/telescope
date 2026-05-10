@@ -92,7 +92,7 @@ export default function ExplorePage() {
             <p className="text-sm">No profiles found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-w-5xl mx-auto">
             {profiles.map((profile) => (
               <ProfileCard
                 key={profile._id}
