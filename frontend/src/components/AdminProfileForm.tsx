@@ -155,7 +155,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
 
           <div>
             <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Media</label>
-            <input ref={fileRef} type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" />
+            <input ref={fileRef} type="file" accept="image/*, video/*, .jpg, .jpeg, .png, .gif, .webp, .mp4, .mov, .webm" multiple onChange={handleMediaUpload} className="hidden" />
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
