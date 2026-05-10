@@ -5,10 +5,10 @@ import type { Profile } from "../api/client";
 import ProfileCard from "../components/ProfileCard";
 
 const TABS = [
-  { key: "", label: "All", icon: "✨" },
-  { key: "trending", label: "Trending", icon: "🔥" },
-  { key: "popular", label: "Most Popular", icon: "💎" },
-  { key: "new", label: "New", icon: "🌟" },
+  { key: "", label: "הכל", icon: "✨" },
+  { key: "trending", label: "פופולרי", icon: "🔥" },
+  { key: "popular", label: "הכי נצפה", icon: "💎" },
+  { key: "new", label: "חדש", icon: "🌟" },
 ] as const;
 
 export default function ExplorePage() {
@@ -38,12 +38,12 @@ export default function ExplorePage() {
     <div className="flex flex-col min-h-screen bg-dark-bg">
       <header className="px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white tracking-tight">Explore</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">גלה</h1>
         </div>
 
         <div className="relative mb-3">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-text-secondary"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-text-secondary"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -55,9 +55,9 @@ export default function ExplorePage() {
           </svg>
           <input
             type="text"
-            placeholder="Search profiles..."
+            placeholder="חיפוש פרופילים..."
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full bg-dark-surface text-white placeholder-dark-text-secondary rounded-full py-2.5 pl-10 pr-4 text-sm outline-none border border-dark-border focus:border-accent/50 transition"
+            className="w-full bg-dark-surface text-white placeholder-dark-text-secondary rounded-full py-2.5 pr-10 pl-4 text-sm outline-none border border-dark-border focus:border-accent/50 transition"
           />
         </div>
 
@@ -89,7 +89,7 @@ export default function ExplorePage() {
             <svg className="w-16 h-16 mb-3 opacity-40" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
             </svg>
-            <p className="text-sm">No profiles found</p>
+            <p className="text-sm">לא נמצאו פרופילים</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-w-5xl mx-auto">

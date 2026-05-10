@@ -37,9 +37,9 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-dark-bg text-dark-text-secondary">
-        <p>Profile not found</p>
+        <p>הפרופיל לא נמצא</p>
         <button onClick={goBack} className="mt-4 text-accent underline bg-transparent border-0 cursor-pointer">
-          Go back
+          חזרה
         </button>
       </div>
     );
@@ -54,14 +54,14 @@ export default function ProfilePage() {
           onClick={goBack}
           className="flex items-center gap-1 text-dark-text-secondary hover:text-white transition bg-transparent border-0 cursor-pointer p-0 mb-2"
         >
-          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+          <svg className="w-5 h-5 rotate-180" viewBox="0 0 20 20" fill="currentColor">
             <path
               fillRule="evenodd"
               d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
               clipRule="evenodd"
             />
           </svg>
-          <span className="text-sm">Back</span>
+          <span className="text-sm">חזרה</span>
         </button>
       </header>
 
@@ -99,7 +99,7 @@ export default function ProfilePage() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.785l3.019-14.228c.309-1.239-.473-1.8-1.282-1.434z" />
             </svg>
-            message
+            הודעה
           </a>
           <button
             onClick={() => {
@@ -110,7 +110,7 @@ export default function ProfilePage() {
             <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.733 3.367a2.5 2.5 0 11-.671 1.341l-6.733-3.367a2.5 2.5 0 110-3.474l6.733-3.367A2.52 2.52 0 0113 4.5z" />
             </svg>
-            share
+            שיתוף
           </button>
         </div>
       </div>

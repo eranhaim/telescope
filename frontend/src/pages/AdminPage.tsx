@@ -20,7 +20,7 @@ export default function AdminPage() {
       localStorage.setItem("admin_token", token);
       setAuthenticated(true);
     } catch {
-      setLoginError("Invalid password");
+      setLoginError("סיסמה שגויה");
     }
   }
 
@@ -42,7 +42,7 @@ export default function AdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this profile and all its media?")) return;
+    if (!confirm("למחוק את הפרופיל ואת כל המדיה שלו?")) return;
     try {
       await api.adminDeleteProfile(id);
       setProfiles((prev) => prev.filter((p) => p._id !== id));
@@ -59,8 +59,8 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
         <form onSubmit={handleLogin} className="w-full max-w-sm bg-dark-card rounded-2xl p-6 border border-dark-border">
-          <h1 className="text-xl font-bold text-white mb-1">Admin Login</h1>
-          <p className="text-dark-text-secondary text-sm mb-6">Enter the admin password to continue</p>
+          <h1 className="text-xl font-bold text-white mb-1">כניסת מנהל</h1>
+          <p className="text-dark-text-secondary text-sm mb-6">הזן את סיסמת המנהל כדי להמשיך</p>
           {loginError && (
             <div className="bg-red-500/10 text-red-400 text-sm px-3 py-2 rounded-lg mb-4">{loginError}</div>
           )}
@@ -68,7 +68,7 @@ export default function AdminPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
+            placeholder="סיסמה"
             className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-accent/50 transition placeholder-dark-text-secondary mb-4"
             autoFocus
           />
@@ -76,7 +76,7 @@ export default function AdminPage() {
             type="submit"
             className="w-full bg-accent hover:bg-accent-hover text-white py-2.5 rounded-lg text-sm font-medium transition border-0 cursor-pointer"
           >
-            Login
+            כניסה
           </button>
         </form>
       </div>
@@ -88,7 +88,7 @@ export default function AdminPage() {
       <div className="min-h-screen bg-dark-bg p-4">
         <div className="max-w-lg mx-auto">
           <h2 className="text-lg font-bold text-white mb-4">
-            {editing ? `Edit: ${editing.name}` : "New Profile"}
+            {editing ? `עריכה: ${editing.name}` : "פרופיל חדש"}
           </h2>
           <AdminProfileForm
             profile={editing || undefined}
@@ -111,19 +111,19 @@ export default function AdminPage() {
     <div className="min-h-screen bg-dark-bg p-4">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-white">Admin Panel</h1>
+          <h1 className="text-xl font-bold text-white">פאנל ניהול</h1>
           <div className="flex gap-2">
             <button
               onClick={() => setCreating(true)}
               className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition border-0 cursor-pointer"
             >
-              + New Profile
+              + פרופיל חדש
             </button>
             <button
               onClick={handleLogout}
               className="bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border px-4 py-2 rounded-lg text-sm transition cursor-pointer"
             >
-              Logout
+              התנתק
             </button>
           </div>
         </div>
@@ -134,8 +134,8 @@ export default function AdminPage() {
           </div>
         ) : profiles.length === 0 ? (
           <div className="text-center py-16 text-dark-text-secondary">
-            <p className="text-lg mb-2">No profiles yet</p>
-            <p className="text-sm">Click "+ New Profile" to create one</p>
+            <p className="text-lg mb-2">אין פרופילים עדיין</p>
+            <p className="text-sm">לחץ על "+ פרופיל חדש" כדי ליצור אחד</p>
           </div>
         ) : (
           <div className="space-y-3">

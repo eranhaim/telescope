@@ -17,18 +17,22 @@ if (!WEBAPP_URL) {
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Welcome to Telescope! 🔭\n\nTap the button below to explore.", {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: "Open Telescope",
-            web_app: { url: WEBAPP_URL },
-          },
+  bot.sendMessage(
+    msg.chat.id,
+    "ברוך הבא לטלסקופ! 🔭\n\nכאן תוכל למצוא את כל הבנות הכי שוות בישראל 🔥",
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "פתח את טלסקופ 🔭",
+              web_app: { url: WEBAPP_URL },
+            },
+          ],
         ],
-      ],
-    },
-  });
+      },
+    }
+  );
 });
 
 bot.on("polling_error", (err) => {

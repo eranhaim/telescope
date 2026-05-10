@@ -43,7 +43,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       onSaved();
     } catch (err) {
       console.error(err);
-      alert("Failed to save profile");
+      alert("שמירת הפרופיל נכשלה");
     } finally {
       setSaving(false);
     }
@@ -59,7 +59,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       onSaved();
     } catch (err) {
       console.error(err);
-      alert("Avatar upload failed");
+      alert("העלאת תמונת פרופיל נכשלה");
     } finally {
       setAvatarUploading(false);
     }
@@ -81,14 +81,14 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       onSaved();
     } catch (err) {
       console.error(err);
-      alert("Media upload failed");
+      alert("העלאת מדיה נכשלה");
     } finally {
       setUploading(false);
     }
   }
 
   async function handleDeleteMedia(s3Key: string) {
-    if (!profile || !confirm("Delete this media item?")) return;
+    if (!profile || !confirm("למחוק את פריט המדיה הזה?")) return;
     try {
       await api.adminDeleteMedia(s3Key);
       const updated = mediaItems
@@ -107,36 +107,36 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} placeholder="Display name" />
+        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">שם</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} placeholder="שם תצוגה" />
       </div>
       <div>
-        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Handle</label>
+        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">שם משתמש</label>
         <input value={handle} onChange={(e) => setHandle(e.target.value)} required className={inputClass} placeholder="@username" />
       </div>
       <div>
-        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Telegram Link</label>
+        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">קישור טלגרם</label>
         <input value={telegramLink} onChange={(e) => setTelegramLink(e.target.value)} required className={inputClass} placeholder="https://t.me/username" />
       </div>
       <div>
-        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Tags (comma-separated)</label>
+        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">תגיות (מופרדות בפסיק)</label>
         <input value={tags} onChange={(e) => setTags(e.target.value)} className={inputClass} placeholder="trending, popular, new" />
       </div>
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Order</label>
+          <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">סדר</label>
           <input type="number" value={order} onChange={(e) => setOrder(Number(e.target.value))} className={inputClass} />
         </div>
         <label className="flex items-center gap-2 cursor-pointer mt-5">
           <input type="checkbox" checked={isVerified} onChange={(e) => setIsVerified(e.target.checked)} className="w-4 h-4 accent-accent" />
-          <span className="text-sm text-dark-text">Verified</span>
+          <span className="text-sm text-dark-text">מאומת</span>
         </label>
       </div>
 
       {profile && (
         <>
           <div>
-            <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Profile Image</label>
+            <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">תמונת פרופיל</label>
             <input ref={avatarRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
             <button
               type="button"
@@ -144,12 +144,12 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
               disabled={avatarUploading}
               className="bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border rounded-lg px-4 py-2 text-sm transition cursor-pointer disabled:opacity-50"
             >
-              {avatarUploading ? "Uploading..." : "Upload Avatar"}
+              {avatarUploading ? "מעלה..." : "העלאת תמונת פרופיל"}
             </button>
           </div>
 
           <div>
-            <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Media</label>
+            <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">מדיה</label>
             <input ref={fileRef} type="file" accept="image/*, video/*, .jpg, .jpeg, .png, .gif, .webp, .mp4, .mov, .webm" multiple onChange={handleMediaUpload} className="hidden" />
             <button
               type="button"
@@ -157,7 +157,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
               disabled={uploading}
               className="bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border rounded-lg px-4 py-2 text-sm transition cursor-pointer disabled:opacity-50 mb-3"
             >
-              {uploading ? "Uploading..." : "Add Media"}
+              {uploading ? "מעלה..." : "הוסף מדיה"}
             </button>
 
             {mediaItems.length > 0 && (
@@ -188,14 +188,14 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
           disabled={saving}
           className="flex-1 bg-accent hover:bg-accent-hover text-white py-2.5 rounded-lg text-sm font-medium transition border-0 cursor-pointer disabled:opacity-50"
         >
-          {saving ? "Saving..." : profile ? "Update Profile" : "Create Profile"}
+          {saving ? "שומר..." : profile ? "עדכן פרופיל" : "צור פרופיל"}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="px-6 py-2.5 bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border rounded-lg text-sm transition cursor-pointer"
         >
-          Cancel
+          ביטול
         </button>
       </div>
     </form>
