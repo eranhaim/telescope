@@ -72,9 +72,11 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
     try {
       const newItems = [];
       for (const file of Array.from(files)) {
-        const { key } = await api.adminUploadFile(file, profile._id, "media");
+        const { key, thumbnail } = await api.adminUploadFile(file, profile._id, "media");
         const type = file.type.startsWith("video/") ? "video" : "image";
-        newItems.push({ type, s3Key: key, order: mediaItems.length + newItems.length });
+        const item: Record<string, any> = { type, s3Key: key, order: mediaItems.length + newItems.length };
+        if (thumbnail) item.thumbnail = thumbnail;
+        newItems.push(item);
       }
       const allMedia = [...mediaItems.map(({ _id, url, thumbnailUrl, ...rest }) => rest), ...newItems];
       await api.adminUpdateProfile(profile._id, { media: allMedia } as any);

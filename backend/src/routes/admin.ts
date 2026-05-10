@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import multer from "multer";
 import Profile from "../models/Profile";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
-import { uploadToS3, deleteFromS3, signProfileUrls } from "../services/s3";
+import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
+import { extractVideoThumbnail } from "../services/thumbnail";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -81,7 +82,19 @@ router.post(
         profileId || "temp",
         folder === "avatar" ? "avatar" : "media"
       );
-      res.json({ key });
+
+      let thumbnail: string | undefined;
+      if (req.file.mimetype.startsWith("video/")) {
+        try {
+          const thumbBuffer = await extractVideoThumbnail(req.file.buffer, req.file.originalname);
+          const thumbKey = key.replace(/\.[^.]+$/, "_thumb.jpg");
+          thumbnail = await uploadBufferToS3(thumbBuffer, thumbKey, "image/jpeg");
+        } catch (err) {
+          console.error("Thumbnail extraction failed:", err);
+        }
+      }
+
+      res.json({ key, thumbnail });
     } catch (err) {
       console.error("POST /api/admin/upload error:", err);
       res.status(500).json({ error: "Upload failed" });

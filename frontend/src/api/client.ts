@@ -92,7 +92,7 @@ export const api = {
     file: File,
     profileId: string,
     folder: "media" | "avatar" = "media"
-  ): Promise<{ key: string }> {
+  ): Promise<{ key: string; thumbnail?: string }> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("profileId", profileId);

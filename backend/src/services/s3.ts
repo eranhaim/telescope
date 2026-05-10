@@ -41,6 +41,22 @@ export async function uploadToS3(
   return key;
 }
 
+export async function uploadBufferToS3(
+  buffer: Buffer,
+  key: string,
+  contentType: string
+): Promise<string> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    })
+  );
+  return key;
+}
+
 export async function deleteFromS3(key: string): Promise<void> {
   await s3.send(
     new DeleteObjectCommand({
