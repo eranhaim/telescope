@@ -56,8 +56,10 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
     if (!file || !profile) return;
     setAvatarUploading(true);
     try {
-      const { key } = await api.adminUploadFile(file, profile._id, "avatar");
-      await api.adminUpdateProfile(profile._id, { profileImage: key } as any);
+      const { key, thumbnail } = await api.adminUploadFile(file, profile._id, "avatar");
+      const update: Record<string, string> = { profileImage: key };
+      if (thumbnail) update.profileImageThumb = thumbnail;
+      await api.adminUpdateProfile(profile._id, update as any);
       onSaved();
     } catch (err) {
       console.error(err);

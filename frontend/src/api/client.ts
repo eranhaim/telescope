@@ -44,6 +44,8 @@ export interface Profile {
   telegramLink: string;
   profileImage: string;
   profileImageUrl?: string;
+  profileImageThumb?: string;
+  profileImageThumbUrl?: string;
   media: MediaItem[];
   linkButtons: LinkButton[];
   tags: string[];

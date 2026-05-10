@@ -18,6 +18,7 @@ export interface IProfile extends Document {
   handle: string;
   telegramLink: string;
   profileImage: string;
+  profileImageThumb: string;
   media: IMediaItem[];
   linkButtons: ILinkButton[];
   tags: string[];
@@ -52,6 +53,7 @@ const ProfileSchema = new Schema<IProfile>(
     handle: { type: String, required: true },
     telegramLink: { type: String, required: true },
     profileImage: { type: String, default: "" },
+    profileImageThumb: { type: String, default: "" },
     media: [MediaItemSchema],
     linkButtons: { type: [LinkButtonSchema], default: [] },
     tags: [{ type: String }],

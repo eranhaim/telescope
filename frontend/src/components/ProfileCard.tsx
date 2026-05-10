@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function ProfileCard({ profile, onClick }: Props) {
-  const imageUrl = profile.profileImageUrl || "/placeholder.svg";
+  const imageUrl = profile.profileImageThumbUrl || profile.profileImageUrl || "/placeholder.svg";
 
   return (
     <button

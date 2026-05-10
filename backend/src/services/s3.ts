@@ -18,6 +18,11 @@ const s3 = new S3Client({
 
 const BUCKET = process.env.S3_BUCKET_NAME || "telescope-media";
 
+const URL_EXPIRY = 86400; // 24 hours
+const CACHE_TTL = 82800_000; // 23 hours in ms (refresh before expiry)
+
+const urlCache = new Map<string, { url: string; expiresAt: number }>();
+
 export async function uploadToS3(
   file: Express.Multer.File,
   profileId: string,
@@ -38,6 +43,7 @@ export async function uploadToS3(
     })
   );
 
+  urlCache.delete(key);
   return key;
 }
 
@@ -54,6 +60,7 @@ export async function uploadBufferToS3(
       ContentType: contentType,
     })
   );
+  urlCache.delete(key);
   return key;
 }
 
@@ -64,12 +71,22 @@ export async function deleteFromS3(key: string): Promise<void> {
       Key: key,
     })
   );
+  urlCache.delete(key);
 }
 
 export async function getSignedMediaUrl(key: string): Promise<string> {
   if (!key) return "";
+
+  const cached = urlCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url;
+  }
+
   const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-  return getSignedUrl(s3, command, { expiresIn: 3600 });
+  const url = await getSignedUrl(s3, command, { expiresIn: URL_EXPIRY });
+
+  urlCache.set(key, { url, expiresAt: Date.now() + CACHE_TTL });
+  return url;
 }
 
 export async function signProfileUrls(profile: Record<string, any>) {
@@ -77,6 +94,9 @@ export async function signProfileUrls(profile: Record<string, any>) {
 
   if (obj.profileImage) {
     obj.profileImageUrl = await getSignedMediaUrl(obj.profileImage);
+  }
+  if (obj.profileImageThumb) {
+    obj.profileImageThumbUrl = await getSignedMediaUrl(obj.profileImageThumb);
   }
 
   if (obj.media && Array.isArray(obj.media)) {

@@ -4,6 +4,7 @@ import Profile from "../models/Profile";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
+import { generateImageThumbnail } from "../services/imageThumbnail";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -90,7 +91,15 @@ router.post(
           const thumbKey = key.replace(/\.[^.]+$/, "_thumb.jpg");
           thumbnail = await uploadBufferToS3(thumbBuffer, thumbKey, "image/jpeg");
         } catch (err) {
-          console.error("Thumbnail extraction failed:", err);
+          console.error("Video thumbnail extraction failed:", err);
+        }
+      } else if (req.file.mimetype.startsWith("image/")) {
+        try {
+          const thumbBuffer = await generateImageThumbnail(req.file.buffer);
+          const thumbKey = key.replace(/\.[^.]+$/, "_thumb.jpg");
+          thumbnail = await uploadBufferToS3(thumbBuffer, thumbKey, "image/jpeg");
+        } catch (err) {
+          console.error("Image thumbnail generation failed:", err);
         }
       }
 

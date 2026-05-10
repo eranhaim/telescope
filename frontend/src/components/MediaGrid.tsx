@@ -16,29 +16,20 @@ export default function MediaGrid({ media, onItemClick }: Props) {
           onClick={() => onItemClick(i)}
           className="relative aspect-square overflow-hidden cursor-pointer border-0 p-0 bg-dark-surface"
         >
-          {item.type === "video" ? (
-            <>
-              <img
-                src={item.thumbnailUrl || item.url}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white ml-0.5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                  </svg>
-                </div>
+          <img
+            src={item.thumbnailUrl || item.url}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
+          />
+          {item.type === "video" && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white ml-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                </svg>
               </div>
-            </>
-          ) : (
-            <img
-              src={item.url}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-              loading="lazy"
-            />
+            </div>
           )}
         </button>
       ))}
