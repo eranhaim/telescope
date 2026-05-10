@@ -16,7 +16,7 @@ export default function ExplorePage() {
   const [activeTab, setActiveTab] = useState("trending");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     setLoading(true);
