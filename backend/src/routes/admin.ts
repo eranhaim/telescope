@@ -1,0 +1,103 @@
+import { Router, Request, Response } from "express";
+import multer from "multer";
+import Profile from "../models/Profile";
+import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
+import { uploadToS3, deleteFromS3, signProfileUrls } from "../services/s3";
+
+const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+router.post("/login", (req: Request, res: Response) => {
+  const { password } = req.body;
+  if (password !== process.env.ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Invalid password" });
+    return;
+  }
+  const token = generateAdminToken();
+  res.json({ token });
+});
+
+router.post("/profiles", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const profile = await Profile.create(req.body);
+    res.status(201).json(profile);
+  } catch (err) {
+    console.error("POST /api/admin/profiles error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!profile) {
+      res.status(404).json({ error: "Profile not found" });
+      return;
+    }
+    const signed = await signProfileUrls(profile);
+    res.json(signed);
+  } catch (err) {
+    console.error("PUT /api/admin/profiles/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const profile = await Profile.findById(req.params.id);
+    if (!profile) {
+      res.status(404).json({ error: "Profile not found" });
+      return;
+    }
+
+    const keysToDelete: string[] = [];
+    if (profile.profileImage) keysToDelete.push(profile.profileImage);
+    for (const m of profile.media) {
+      keysToDelete.push(m.s3Key);
+      if (m.thumbnail) keysToDelete.push(m.thumbnail);
+    }
+    await Promise.all(keysToDelete.map(deleteFromS3));
+    await profile.deleteOne();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/profiles/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post(
+  "/upload",
+  adminAuth,
+  upload.single("file"),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file provided" });
+        return;
+      }
+      const { profileId, folder } = req.body;
+      const key = await uploadToS3(
+        req.file,
+        profileId || "temp",
+        folder === "avatar" ? "avatar" : "media"
+      );
+      res.json({ key });
+    } catch (err) {
+      console.error("POST /api/admin/upload error:", err);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  }
+);
+
+router.delete("/media/:key(*)", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const key = Array.isArray(req.params.key) ? req.params.key.join("/") : req.params.key;
+    await deleteFromS3(key);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/media error:", err);
+    res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+export default router;

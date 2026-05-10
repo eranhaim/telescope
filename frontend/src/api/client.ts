@@ -1,0 +1,116 @@
+const BASE = "/api";
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem("admin_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export interface MediaItem {
+  _id: string;
+  type: "image" | "video";
+  s3Key: string;
+  url: string;
+  thumbnail?: string;
+  thumbnailUrl?: string;
+  order: number;
+}
+
+export interface Profile {
+  _id: string;
+  name: string;
+  handle: string;
+  telegramLink: string;
+  profileImage: string;
+  profileImageUrl?: string;
+  media: MediaItem[];
+  tags: string[];
+  order: number;
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const api = {
+  getProfiles(tag?: string, search?: string): Promise<Profile[]> {
+    const params = new URLSearchParams();
+    if (tag) params.set("tag", tag);
+    if (search) params.set("search", search);
+    const qs = params.toString();
+    return request(`/profiles${qs ? `?${qs}` : ""}`);
+  },
+
+  getProfile(id: string): Promise<Profile> {
+    return request(`/profiles/${id}`);
+  },
+
+  adminLogin(password: string): Promise<{ token: string }> {
+    return request("/admin/login", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+  },
+
+  adminCreateProfile(data: Partial<Profile>): Promise<Profile> {
+    return request("/admin/profiles", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: authHeaders(),
+    });
+  },
+
+  adminUpdateProfile(id: string, data: Partial<Profile>): Promise<Profile> {
+    return request(`/admin/profiles/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+      headers: authHeaders(),
+    });
+  },
+
+  adminDeleteProfile(id: string): Promise<void> {
+    return request(`/admin/profiles/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  },
+
+  async adminUploadFile(
+    file: File,
+    profileId: string,
+    folder: "media" | "avatar" = "media"
+  ): Promise<{ key: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("profileId", profileId);
+    formData.append("folder", folder);
+
+    const res = await fetch(`${BASE}/admin/upload`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Upload failed");
+    return res.json();
+  },
+
+  adminDeleteMedia(key: string): Promise<void> {
+    return request(`/admin/media/${encodeURIComponent(key)}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  },
+};
