@@ -52,7 +52,6 @@ export default function ExplorePage() {
           >
             טלסקופ
           </h1>
-          <p className="text-purple-300/60 text-sm mt-1">🔭</p>
         </div>
       </div>
 
