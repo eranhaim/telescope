@@ -36,10 +36,26 @@ export default function ExplorePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-dark-bg">
-      <header className="px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white tracking-tight">גלה</h1>
+      <div className="relative overflow-hidden py-6 px-4 mb-2">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-900/40 via-pink-800/30 to-purple-900/40 animate-pulse" />
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -inset-1 bg-[conic-gradient(from_0deg,#7c3aed,#ec4899,#a855f7,#db2777,#7c3aed)] opacity-20 blur-2xl animate-spin" style={{ animationDuration: "8s" }} />
         </div>
+        <div className="relative text-center">
+          <h1
+            className="text-4xl sm:text-5xl font-black tracking-tight bg-clip-text text-transparent animate-[shimmer_3s_ease-in-out_infinite]"
+            style={{
+              backgroundImage: "linear-gradient(90deg, #c084fc, #f472b6, #e879f9, #c084fc, #f472b6)",
+              backgroundSize: "200% 100%",
+            }}
+          >
+            טלסקופ
+          </h1>
+          <p className="text-purple-300/60 text-sm mt-1">🔭</p>
+        </div>
+      </div>
+
+      <header className="px-4 pb-2">
 
         <div className="relative mb-3">
           <svg

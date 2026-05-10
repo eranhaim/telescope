@@ -7,12 +7,19 @@ export interface IMediaItem {
   order: number;
 }
 
+export interface ILinkButton {
+  label: string;
+  url: string;
+  order: number;
+}
+
 export interface IProfile extends Document {
   name: string;
   handle: string;
   telegramLink: string;
   profileImage: string;
   media: IMediaItem[];
+  linkButtons: ILinkButton[];
   tags: string[];
   order: number;
   isVerified: boolean;
@@ -30,6 +37,15 @@ const MediaItemSchema = new Schema<IMediaItem>(
   { _id: true }
 );
 
+const LinkButtonSchema = new Schema<ILinkButton>(
+  {
+    label: { type: String, required: true },
+    url: { type: String, required: true },
+    order: { type: Number, default: 0 },
+  },
+  { _id: true }
+);
+
 const ProfileSchema = new Schema<IProfile>(
   {
     name: { type: String, required: true },
@@ -37,6 +53,7 @@ const ProfileSchema = new Schema<IProfile>(
     telegramLink: { type: String, required: true },
     profileImage: { type: String, default: "" },
     media: [MediaItemSchema],
+    linkButtons: { type: [LinkButtonSchema], default: [] },
     tags: [{ type: String }],
     order: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false },

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { api } from "../api/client";
-import type { Profile } from "../api/client";
+import type { Profile, LinkButton } from "../api/client";
 
 interface Props {
   profile?: Profile;
@@ -21,6 +21,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
   const fileRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
   const [mediaItems, setMediaItems] = useState(profile?.media || []);
+  const [linkButtons, setLinkButtons] = useState<LinkButton[]>(profile?.linkButtons || []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +35,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
         isVerified,
         order,
         media: mediaItems,
+        linkButtons: linkButtons.map(({ _id, ...rest }) => rest),
       };
       if (profile) {
         await api.adminUpdateProfile(profile._id, data);
@@ -133,6 +135,50 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
           <input type="checkbox" checked={isVerified} onChange={(e) => setIsVerified(e.target.checked)} className="w-4 h-4 accent-accent" />
           <span className="text-sm text-dark-text">מאומת</span>
         </label>
+      </div>
+
+      <div>
+        <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">כפתורי קישור</label>
+        <div className="space-y-2 mb-2">
+          {linkButtons.map((btn, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <input
+                value={btn.label}
+                onChange={(e) => {
+                  const updated = [...linkButtons];
+                  updated[i] = { ...updated[i], label: e.target.value };
+                  setLinkButtons(updated);
+                }}
+                className={inputClass}
+                placeholder="טקסט הכפתור"
+              />
+              <input
+                value={btn.url}
+                onChange={(e) => {
+                  const updated = [...linkButtons];
+                  updated[i] = { ...updated[i], url: e.target.value };
+                  setLinkButtons(updated);
+                }}
+                className={inputClass}
+                placeholder="https://..."
+              />
+              <button
+                type="button"
+                onClick={() => setLinkButtons(linkButtons.filter((_, j) => j !== i))}
+                className="shrink-0 w-8 h-8 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center justify-center border-0 cursor-pointer text-lg"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setLinkButtons([...linkButtons, { label: "", url: "", order: linkButtons.length }])}
+          className="bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border rounded-lg px-4 py-2 text-sm transition cursor-pointer"
+        >
+          + הוסף כפתור
+        </button>
       </div>
 
       {profile && (

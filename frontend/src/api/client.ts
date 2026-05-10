@@ -30,6 +30,13 @@ export interface MediaItem {
   order: number;
 }
 
+export interface LinkButton {
+  _id?: string;
+  label: string;
+  url: string;
+  order: number;
+}
+
 export interface Profile {
   _id: string;
   name: string;
@@ -38,6 +45,7 @@ export interface Profile {
   profileImage: string;
   profileImageUrl?: string;
   media: MediaItem[];
+  linkButtons: LinkButton[];
   tags: string[];
   order: number;
   isVerified: boolean;
