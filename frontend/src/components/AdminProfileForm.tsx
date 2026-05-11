@@ -213,14 +213,19 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
             {mediaItems.length > 0 && (
               <div className="grid grid-cols-4 gap-2">
                 {mediaItems.map((m) => (
-                  <div key={m.s3Key} className="relative group aspect-square bg-dark-surface rounded-lg overflow-hidden">
-                    <div className="w-full h-full flex items-center justify-center text-dark-text-secondary text-xs p-1 text-center break-all">
-                      {m.type === "video" ? "🎬" : "🖼️"} {m.s3Key.split("/").pop()}
-                    </div>
+                  <div key={m.s3Key} className="relative aspect-square bg-dark-surface rounded-lg overflow-hidden">
+                    <img
+                      src={m.thumbnailUrl || m.url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    {m.type === "video" && (
+                      <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">🎬</div>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleDeleteMedia(m.s3Key)}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs items-center justify-center hidden group-hover:flex border-0 cursor-pointer"
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600 text-white text-sm flex items-center justify-center border-0 cursor-pointer shadow-md"
                     >
                       ×
                     </button>
