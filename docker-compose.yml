@@ -4,9 +4,9 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      - PORT=3000
+      - PORT=7291
     expose:
-      - "3000"
+      - "7291"
 
   frontend:
     build: ./frontend
