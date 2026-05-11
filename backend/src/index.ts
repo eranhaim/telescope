@@ -4,6 +4,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import profilesRouter from "./routes/profiles";
 import adminRouter from "./routes/admin";
+import trackRouter from "./routes/track";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +14,7 @@ app.use(express.json());
 
 app.use("/api/profiles", profilesRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/track", trackRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });

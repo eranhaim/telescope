@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import Profile from "../models/Profile";
+import SiteStats from "../models/SiteStats";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
@@ -136,6 +137,16 @@ router.delete("/media/:key(*)", adminAuth, async (req: Request, res: Response) =
   } catch (err) {
     console.error("DELETE /api/admin/media error:", err);
     res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+router.get("/stats", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const siteOpens = await SiteStats.findOne({ key: "site_opens" });
+    res.json({ siteOpens: siteOpens?.count || 0 });
+  } catch (err) {
+    console.error("GET /api/admin/stats error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

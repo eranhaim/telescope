@@ -51,9 +51,14 @@ function SortableMediaItem({
           className="w-full h-full object-cover pointer-events-none"
         />
       </div>
-      {item.type === "video" && (
-        <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none">🎬</div>
-      )}
+      <div className="absolute bottom-1 left-1 flex gap-1 pointer-events-none">
+        {item.type === "video" && (
+          <span className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">🎬</span>
+        )}
+        <span className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+          👁 {(item.clicks || 0).toLocaleString()}
+        </span>
+      </div>
       <button
         type="button"
         onClick={onDelete}

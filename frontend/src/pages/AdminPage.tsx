@@ -66,6 +66,9 @@ function SortableProfileRow({
         <div className="flex items-center gap-1.5">
           <span className="font-semibold text-white text-sm truncate">{profile.name}</span>
           {profile.isVerified && <span className="text-blue-400 text-xs">✓</span>}
+          <span className="text-dark-text-secondary text-[10px] bg-dark-surface px-1.5 py-0.5 rounded-full shrink-0">
+            👁 {(profile.clicks || 0).toLocaleString()}
+          </span>
         </div>
         <p className="text-dark-text-secondary text-xs truncate">{profile.handle}</p>
         <div className="flex gap-1 mt-1">
@@ -110,6 +113,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
   const [creating, setCreating] = useState(false);
+  const [siteOpens, setSiteOpens] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -136,8 +140,12 @@ export default function AdminPage() {
   async function loadProfiles() {
     setLoading(true);
     try {
-      const data = await api.getProfiles();
+      const [data, stats] = await Promise.all([
+        api.getProfiles(),
+        api.adminGetStats(),
+      ]);
       setProfiles(data);
+      setSiteOpens(stats.siteOpens);
     } catch (err) {
       console.error(err);
     } finally {
@@ -248,6 +256,14 @@ export default function AdminPage() {
             >
               התנתק
             </button>
+          </div>
+        </div>
+
+        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-lg">👁</div>
+          <div>
+            <p className="text-xs text-dark-text-secondary">פתיחות מהבוט</p>
+            <p className="text-xl font-bold text-white">{siteOpens.toLocaleString()}</p>
           </div>
         </div>
 

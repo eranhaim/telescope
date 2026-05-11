@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
+
 import ProfileCard from "../components/ProfileCard";
 
 const TABS = [
@@ -113,7 +114,7 @@ export default function ExplorePage() {
               <ProfileCard
                 key={profile._id}
                 profile={profile}
-                onClick={() => navigate(`/profile/${profile._id}`)}
+                onClick={() => { api.trackProfileClick(profile._id); navigate(`/profile/${profile._id}`); }}
               />
             ))}
           </div>

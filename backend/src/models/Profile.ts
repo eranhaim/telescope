@@ -5,6 +5,7 @@ export interface IMediaItem {
   s3Key: string;
   thumbnail?: string;
   order: number;
+  clicks: number;
 }
 
 export interface ILinkButton {
@@ -23,6 +24,7 @@ export interface IProfile extends Document {
   linkButtons: ILinkButton[];
   tags: string[];
   order: number;
+  clicks: number;
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +36,7 @@ const MediaItemSchema = new Schema<IMediaItem>(
     s3Key: { type: String, required: true },
     thumbnail: { type: String },
     order: { type: Number, default: 0 },
+    clicks: { type: Number, default: 0 },
   },
   { _id: true }
 );
@@ -58,6 +61,7 @@ const ProfileSchema = new Schema<IProfile>(
     linkButtons: { type: [LinkButtonSchema], default: [] },
     tags: [{ type: String }],
     order: { type: Number, default: 0 },
+    clicks: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false },
   },
   { timestamps: true }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
+
 import { useBackButton } from "../hooks/useTelegram";
 import MediaGrid from "../components/MediaGrid";
 import MediaViewer from "../components/MediaViewer";
@@ -136,7 +137,11 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <MediaGrid media={sortedMedia} onItemClick={setViewerIndex} />
+      <MediaGrid media={sortedMedia} onItemClick={(i) => {
+        const item = sortedMedia[i];
+        if (item && profile) api.trackMediaClick(profile._id, item.s3Key);
+        setViewerIndex(i);
+      }} />
       </div>
 
       {viewerIndex !== null && (

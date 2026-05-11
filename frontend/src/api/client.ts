@@ -28,6 +28,7 @@ export interface MediaItem {
   thumbnail?: string;
   thumbnailUrl?: string;
   order: number;
+  clicks: number;
 }
 
 export interface LinkButton {
@@ -50,6 +51,7 @@ export interface Profile {
   linkButtons: LinkButton[];
   tags: string[];
   order: number;
+  clicks: number;
   isVerified: boolean;
   createdAt: string;
   updatedAt: string;
@@ -130,5 +132,21 @@ export const api = {
       method: "DELETE",
       headers: authHeaders(),
     });
+  },
+
+  adminGetStats(): Promise<{ siteOpens: number }> {
+    return request("/admin/stats", { headers: authHeaders() });
+  },
+
+  trackSiteOpen(): void {
+    fetch(`${BASE}/track/site-open`, { method: "POST" }).catch(() => {});
+  },
+
+  trackProfileClick(id: string): void {
+    fetch(`${BASE}/track/profile/${id}`, { method: "POST" }).catch(() => {});
+  },
+
+  trackMediaClick(profileId: string, s3Key: string): void {
+    fetch(`${BASE}/track/media/${profileId}/${encodeURIComponent(s3Key)}`, { method: "POST" }).catch(() => {});
   },
 };
