@@ -91,6 +91,14 @@ export const api = {
     });
   },
 
+  adminReorderProfiles(order: { id: string; order: number }[]): Promise<void> {
+    return request("/admin/profiles/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ order }),
+      headers: authHeaders(),
+    });
+  },
+
   adminDeleteProfile(id: string): Promise<void> {
     return request(`/admin/profiles/${id}`, {
       method: "DELETE",

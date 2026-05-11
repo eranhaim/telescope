@@ -2,6 +2,105 @@ import { useState, useEffect } from "react";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
 import AdminProfileForm from "../components/AdminProfileForm";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortableProfileRow({
+  profile,
+  onEdit,
+  onDelete,
+}: {
+  profile: Profile;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: profile._id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 bg-dark-card border border-dark-border rounded-xl p-4"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="shrink-0 cursor-grab active:cursor-grabbing bg-transparent border-0 p-1 text-dark-text-secondary hover:text-white touch-none"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+        </svg>
+      </button>
+      <div className="w-14 h-14 rounded-full overflow-hidden bg-dark-surface shrink-0">
+        {profile.profileImageUrl ? (
+          <img src={profile.profileImageUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-dark-text-secondary text-lg">
+            {profile.name[0]}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold text-white text-sm truncate">{profile.name}</span>
+          {profile.isVerified && <span className="text-blue-400 text-xs">✓</span>}
+        </div>
+        <p className="text-dark-text-secondary text-xs truncate">{profile.handle}</p>
+        <div className="flex gap-1 mt-1">
+          {profile.tags.map((t) => (
+            <span key={t} className="bg-dark-surface text-dark-text-secondary text-[10px] px-2 py-0.5 rounded-full">
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2 shrink-0">
+        <button
+          onClick={onEdit}
+          className="text-dark-text-secondary hover:text-white text-sm bg-transparent border-0 cursor-pointer p-1 transition"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+          </svg>
+        </button>
+        <button
+          onClick={onDelete}
+          className="text-dark-text-secondary hover:text-red-400 text-sm bg-transparent border-0 cursor-pointer p-1 transition"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(!!localStorage.getItem("admin_token"));
@@ -11,6 +110,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
   const [creating, setCreating] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +152,25 @@ export default function AdminPage() {
       setProfiles((prev) => prev.filter((p) => p._id !== id));
     } catch (err) {
       console.error(err);
+    }
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = profiles.findIndex((p) => p._id === active.id);
+    const newIndex = profiles.findIndex((p) => p._id === over.id);
+    const reordered = arrayMove(profiles, oldIndex, newIndex);
+    setProfiles(reordered);
+
+    try {
+      await api.adminReorderProfiles(
+        reordered.map((p, i) => ({ id: p._id, order: i }))
+      );
+    } catch (err) {
+      console.error(err);
+      loadProfiles();
     }
   }
 
@@ -138,60 +261,20 @@ export default function AdminPage() {
             <p className="text-sm">לחץ על "+ פרופיל חדש" כדי ליצור אחד</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {profiles.map((p) => (
-              <div
-                key={p._id}
-                className="flex items-center gap-4 bg-dark-card border border-dark-border rounded-xl p-4"
-              >
-                <div className="w-14 h-14 rounded-full overflow-hidden bg-dark-surface shrink-0">
-                  {p.profileImageUrl ? (
-                    <img src={p.profileImageUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-dark-text-secondary text-lg">
-                      {p.name[0]}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-white text-sm truncate">{p.name}</span>
-                    {p.isVerified && <span className="text-blue-400 text-xs">✓</span>}
-                  </div>
-                  <p className="text-dark-text-secondary text-xs truncate">{p.handle}</p>
-                  <div className="flex gap-1 mt-1">
-                    {p.tags.map((t) => (
-                      <span key={t} className="bg-dark-surface text-dark-text-secondary text-[10px] px-2 py-0.5 rounded-full">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => setEditing(p)}
-                    className="text-dark-text-secondary hover:text-white text-sm bg-transparent border-0 cursor-pointer p-1 transition"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(p._id)}
-                    className="text-dark-text-secondary hover:text-red-400 text-sm bg-transparent border-0 cursor-pointer p-1 transition"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path
-                        fillRule="evenodd"
-                        d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={profiles.map((p) => p._id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {profiles.map((p) => (
+                  <SortableProfileRow
+                    key={p._id}
+                    profile={p}
+                    onEdit={() => setEditing(p)}
+                    onDelete={() => handleDelete(p._id)}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>

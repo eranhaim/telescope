@@ -1,6 +1,69 @@
 import { useState, useRef } from "react";
 import { api } from "../api/client";
-import type { Profile, LinkButton } from "../api/client";
+import type { Profile, LinkButton, MediaItem } from "../api/client";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortableMediaItem({
+  item,
+  onDelete,
+}: {
+  item: MediaItem;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.s3Key });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative aspect-square bg-dark-surface rounded-lg overflow-hidden"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute inset-0 cursor-grab active:cursor-grabbing touch-none"
+      >
+        <img
+          src={item.thumbnailUrl || item.url}
+          alt=""
+          className="w-full h-full object-cover pointer-events-none"
+        />
+      </div>
+      {item.type === "video" && (
+        <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none">🎬</div>
+      )}
+      <button
+        type="button"
+        onClick={onDelete}
+        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600 text-white text-sm flex items-center justify-center border-0 cursor-pointer shadow-md z-10"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 interface Props {
   profile?: Profile;
@@ -20,8 +83,33 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
-  const [mediaItems, setMediaItems] = useState(profile?.media || []);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>(profile?.media || []);
   const [linkButtons, setLinkButtons] = useState<LinkButton[]>(profile?.linkButtons || []);
+
+  const mediaSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  async function handleMediaDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !profile) return;
+
+    const oldIndex = mediaItems.findIndex((m) => m.s3Key === active.id);
+    const newIndex = mediaItems.findIndex((m) => m.s3Key === over.id);
+    const reordered = arrayMove(mediaItems, oldIndex, newIndex).map((m, i) => ({
+      ...m,
+      order: i,
+    }));
+    setMediaItems(reordered);
+
+    try {
+      const cleaned = reordered.map(({ _id, url, thumbnailUrl, ...rest }) => rest);
+      await api.adminUpdateProfile(profile._id, { media: cleaned } as any);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -211,27 +299,19 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
             </button>
 
             {mediaItems.length > 0 && (
-              <div className="grid grid-cols-4 gap-2">
-                {mediaItems.map((m) => (
-                  <div key={m.s3Key} className="relative aspect-square bg-dark-surface rounded-lg overflow-hidden">
-                    <img
-                      src={m.thumbnailUrl || m.url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                    {m.type === "video" && (
-                      <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">🎬</div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteMedia(m.s3Key)}
-                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600 text-white text-sm flex items-center justify-center border-0 cursor-pointer shadow-md"
-                    >
-                      ×
-                    </button>
+              <DndContext sensors={mediaSensors} collisionDetection={closestCenter} onDragEnd={handleMediaDragEnd}>
+                <SortableContext items={mediaItems.map((m) => m.s3Key)} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-4 gap-2">
+                    {mediaItems.map((m) => (
+                      <SortableMediaItem
+                        key={m.s3Key}
+                        item={m}
+                        onDelete={() => handleDeleteMedia(m.s3Key)}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
         </>

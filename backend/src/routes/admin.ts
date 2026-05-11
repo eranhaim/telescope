@@ -44,6 +44,23 @@ router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
+router.put("/profiles/reorder", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { order } = req.body as { order: { id: string; order: number }[] };
+    if (!Array.isArray(order)) {
+      res.status(400).json({ error: "Invalid order data" });
+      return;
+    }
+    await Promise.all(
+      order.map((item) => Profile.findByIdAndUpdate(item.id, { order: item.order }))
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error("PUT /api/admin/profiles/reorder error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.delete("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const profile = await Profile.findById(req.params.id);
