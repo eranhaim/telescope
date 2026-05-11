@@ -19,7 +19,7 @@ const bot = new TelegramBot(TOKEN, { polling: true });
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
-    "ברוך הבא לטלסקופ! 🔭\n\nכאן תוכל למצוא את כל הבנות הכי שוות בישראל 🔥",
+    "תלחץ עלי כדי לראות את הבנות הכי שוות בישראל בחינם 🍑",
     {
       reply_markup: {
         inline_keyboard: [
