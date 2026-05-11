@@ -4,7 +4,9 @@ import './index.css'
 import App from './App.tsx'
 import { api } from './api/client'
 
-api.trackSiteOpen();
+if (window.Telegram?.WebApp?.initData) {
+  api.trackSiteOpen();
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
