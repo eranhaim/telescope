@@ -30,21 +30,6 @@ router.post("/profiles", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
-  try {
-    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!profile) {
-      res.status(404).json({ error: "Profile not found" });
-      return;
-    }
-    const signed = await signProfileUrls(profile);
-    res.json(signed);
-  } catch (err) {
-    console.error("PUT /api/admin/profiles/:id error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 router.put("/profiles/reorder", adminAuth, async (req: Request, res: Response) => {
   try {
     const { order } = req.body as { order: { id: string; order: number }[] };
@@ -58,6 +43,21 @@ router.put("/profiles/reorder", adminAuth, async (req: Request, res: Response) =
     res.json({ success: true });
   } catch (err) {
     console.error("PUT /api/admin/profiles/reorder error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!profile) {
+      res.status(404).json({ error: "Profile not found" });
+      return;
+    }
+    const signed = await signProfileUrls(profile);
+    res.json(signed);
+  } catch (err) {
+    console.error("PUT /api/admin/profiles/:id error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
