@@ -7,6 +7,22 @@ import MediaGrid from "../components/MediaGrid";
 import MediaViewer from "../components/MediaViewer";
 import { useLocale } from "../i18n/useLocale";
 
+function isTelegramLink(url: string): boolean {
+  return /(?:https?:\/\/)?t\.me\//i.test(url.trim());
+}
+
+function openSmartLink(url: string) {
+  const tg = window.Telegram?.WebApp;
+  if (tg?.openTelegramLink && isTelegramLink(url)) {
+    const normalized = url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`;
+    tg.openTelegramLink(normalized);
+  } else if (tg?.openLink) {
+    tg.openLink(url);
+  } else {
+    window.open(url, "_blank");
+  }
+}
+
 function extractTelegramUsername(link: string): string | null {
   if (!link) return null;
   const trimmed = link.trim();
@@ -191,12 +207,10 @@ export default function ProfilePage() {
                             {[...profile.linkButtons]
                                 .sort((a, b) => a.order - b.order)
                                 .map((btn) => (
-                                    <a
+                                    <button
                                         key={btn._id || btn.url}
-                                        href={btn.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white px-5 py-2.5 rounded-full text-sm font-medium transition no-underline"
+                                        onClick={() => openSmartLink(btn.url)}
+                                        className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white px-5 py-2.5 rounded-full text-sm font-medium transition no-underline border-0 cursor-pointer"
                                     >
                                         <svg
                                             className="w-4 h-4"
@@ -207,7 +221,7 @@ export default function ProfilePage() {
                                             <path d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" />
                                         </svg>
                                         {btn.label}
-                                    </a>
+                                    </button>
                                 ))}
                         </div>
                     )}
