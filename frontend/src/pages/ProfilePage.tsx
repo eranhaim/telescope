@@ -7,6 +7,21 @@ import { useBackButton } from "../hooks/useTelegram";
 import MediaGrid from "../components/MediaGrid";
 import MediaViewer from "../components/MediaViewer";
 
+function normalizeTelegramLink(link: string): string {
+  if (!link) return "";
+  const trimmed = link.trim();
+  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("@")) {
+    return `https://t.me/${trimmed.slice(1)}`;
+  }
+  if (trimmed.startsWith("t.me/")) {
+    return `https://${trimmed}`;
+  }
+  return `https://t.me/${trimmed}`;
+}
+
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -93,7 +108,7 @@ export default function ProfilePage() {
 
         <div className="flex flex-wrap gap-3 mb-4 justify-center">
           <a
-            href={profile.telegramLink}
+            href={normalizeTelegramLink(profile.telegramLink)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 bg-dark-surface hover:bg-dark-border text-white px-5 py-2.5 rounded-full text-sm font-medium transition no-underline border border-dark-border"
@@ -105,7 +120,7 @@ export default function ProfilePage() {
           </a>
           <button
             onClick={() => {
-              navigator.clipboard?.writeText(profile.telegramLink);
+              navigator.clipboard?.writeText(normalizeTelegramLink(profile.telegramLink));
             }}
             className="flex items-center gap-2 bg-dark-surface hover:bg-dark-border text-white px-5 py-2.5 rounded-full text-sm font-medium transition border border-dark-border cursor-pointer"
           >
