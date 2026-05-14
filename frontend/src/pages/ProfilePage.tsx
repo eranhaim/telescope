@@ -11,7 +11,7 @@ function extractTelegramUsername(link: string): string | null {
   if (!link) return null;
   const trimmed = link.trim();
   if (trimmed.startsWith("@")) return trimmed.slice(1);
-  const match = trimmed.match(/(?:https?:\/\/)?t\.me\/([A-Za-z0-9_]+)/);
+  const match = trimmed.match(/(?:https?:\/\/)?t\.me\/@?([A-Za-z0-9_]+)/);
   return match?.[1] ?? null;
 }
 

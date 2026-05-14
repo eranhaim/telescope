@@ -10,6 +10,16 @@ import { generateImageThumbnail } from "../services/imageThumbnail";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
+function normalizeTelegramLink(link: string): string {
+  if (!link) return "";
+  const trimmed = link.trim();
+  if (trimmed.startsWith("@")) return `https://t.me/${trimmed.slice(1)}`;
+  const match = trimmed.match(/(?:https?:\/\/)?t\.me\/@?([A-Za-z0-9_]+)/);
+  if (match) return `https://t.me/${match[1]}`;
+  if (trimmed.startsWith("http")) return trimmed;
+  return `https://t.me/${trimmed}`;
+}
+
 router.post("/login", (req: Request, res: Response) => {
   const { password } = req.body;
   if (password !== process.env.ADMIN_PASSWORD) {
@@ -22,7 +32,9 @@ router.post("/login", (req: Request, res: Response) => {
 
 router.post("/profiles", adminAuth, async (req: Request, res: Response) => {
   try {
-    const profile = await Profile.create(req.body);
+    const data = { ...req.body };
+    if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink);
+    const profile = await Profile.create(data);
     res.status(201).json(profile);
   } catch (err) {
     console.error("POST /api/admin/profiles error:", err);
@@ -49,7 +61,9 @@ router.put("/profiles/reorder", adminAuth, async (req: Request, res: Response) =
 
 router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
   try {
-    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const data = { ...req.body };
+    if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink);
+    const profile = await Profile.findByIdAndUpdate(req.params.id, data, { new: true });
     if (!profile) {
       res.status(404).json({ error: "Profile not found" });
       return;
