@@ -14,25 +14,46 @@ if (!WEBAPP_URL) {
   process.exit(1);
 }
 
+const botMessages: Record<string, { text: string; button: string }> = {
+  he: {
+    text: "תלחץ עלי כדי לראות את הבנות הכי שוות בישראל בחינם 🍑",
+    button: "פתח את טלסקופ 🔭",
+  },
+  en: {
+    text: "Click me to see the hottest girls in Israel for free 🍑",
+    button: "Open Telescope 🔭",
+  },
+  ar: {
+    text: "اضغط عليّ لمشاهدة أجمل البنات في إسرائيل مجاناً 🍑",
+    button: "افتح تلسكوب 🔭",
+  },
+};
+
+function getLocale(langCode?: string): string {
+  if (!langCode) return "he";
+  if (langCode === "ar") return "ar";
+  if (langCode.startsWith("en")) return "en";
+  return "he";
+}
+
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
-    "תלחץ עלי כדי לראות את הבנות הכי שוות בישראל בחינם 🍑",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "פתח את טלסקופ 🔭",
-              web_app: { url: WEBAPP_URL },
-            },
-          ],
+  const locale = getLocale(msg.from?.language_code);
+  const strings = botMessages[locale] || botMessages.he;
+
+  bot.sendMessage(msg.chat.id, strings.text, {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: strings.button,
+            web_app: { url: WEBAPP_URL },
+          },
         ],
-      },
-    }
-  );
+      ],
+    },
+  });
 });
 
 bot.on("polling_error", (err) => {
