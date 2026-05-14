@@ -7,6 +7,42 @@ import MediaGrid from "../components/MediaGrid";
 import MediaViewer from "../components/MediaViewer";
 import { useLocale } from "../i18n/useLocale";
 
+function extractTelegramUsername(link: string): string | null {
+  if (!link) return null;
+  const trimmed = link.trim();
+  if (trimmed.startsWith("@")) return trimmed.slice(1);
+  const match = trimmed.match(/(?:https?:\/\/)?t\.me\/([A-Za-z0-9_]+)/);
+  return match?.[1] ?? null;
+}
+
+function openTelegramChat(link: string) {
+  const username = extractTelegramUsername(link);
+  if (!username) {
+    window.open(link, "_blank");
+    return;
+  }
+
+  const tmeUrl = `https://t.me/${username}`;
+  const tg = window.Telegram?.WebApp;
+
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(tmeUrl);
+    return;
+  }
+
+  // Outside Telegram — try tg:// protocol, fall back to https
+  window.location.href = `tg://resolve?domain=${username}`;
+
+  const start = Date.now();
+  const onBlur = () => { clearTimeout(timer); };
+  window.addEventListener("blur", onBlur, { once: true });
+
+  const timer = setTimeout(() => {
+    window.removeEventListener("blur", onBlur);
+    if (Date.now() - start < 1500) window.open(tmeUrl, "_blank");
+  }, 800);
+}
+
 export default function ProfilePage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -108,11 +144,9 @@ export default function ProfilePage() {
                     </p>
 
                     <div className="flex flex-wrap gap-3 mb-4 justify-center">
-                        <a
-                            href={profile.telegramLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 bg-dark-surface hover:bg-dark-border text-white px-5 py-2.5 rounded-full text-sm font-medium transition no-underline border border-dark-border"
+                        <button
+                            onClick={() => openTelegramChat(profile.telegramLink)}
+                            className="flex items-center gap-2 bg-dark-surface hover:bg-dark-border text-white px-5 py-2.5 rounded-full text-sm font-medium transition no-underline border border-dark-border cursor-pointer"
                         >
                             <svg
                                 className="w-4 h-4"
@@ -122,7 +156,7 @@ export default function ProfilePage() {
                                 <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.785l3.019-14.228c.309-1.239-.473-1.8-1.282-1.434z" />
                             </svg>
                             {t("message")}
-                        </a>
+                        </button>
                         <button
                             onClick={async () => {
                                 const shareUrl = `${window.location.origin}/profile/${profile._id}`;

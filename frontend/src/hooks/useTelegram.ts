@@ -7,6 +7,8 @@ declare global {
         ready: () => void;
         expand: () => void;
         close: () => void;
+        openTelegramLink: (url: string) => void;
+        openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
         BackButton: {
           show: () => void;
           hide: () => void;
@@ -34,7 +36,7 @@ declare global {
           };
         };
         colorScheme: "light" | "dark";
-        platform: string;
+        platform: "android" | "android_x" | "ios" | "tdesktop" | "macos" | "unigram" | "web" | "weba" | "webk" | string;
       };
     };
   }
