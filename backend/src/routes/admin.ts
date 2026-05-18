@@ -166,6 +166,42 @@ router.get("/stats", adminAuth, async (_req: Request, res: Response) => {
   }
 });
 
+router.get("/users/hourly", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const days = parseInt(req.query.days as string) || 7;
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const pipeline = [
+      { $match: { firstSeen: { $gte: since } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$firstSeen" },
+            month: { $month: "$firstSeen" },
+            day: { $dayOfMonth: "$firstSeen" },
+            hour: { $hour: "$firstSeen" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
+    ];
+
+    const results = await TelegramUser.aggregate(pipeline);
+
+    const hourly = results.map((r) => ({
+      time: new Date(r._id.year, r._id.month - 1, r._id.day, r._id.hour).toISOString(),
+      count: r.count,
+    }));
+
+    res.json({ hourly, totalUsers: await TelegramUser.countDocuments() });
+  } catch (err) {
+    console.error("GET /api/admin/users/hourly error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
   try {
     const users = await TelegramUser.find().sort({ lastSeen: -1 }).lean();

@@ -138,6 +138,10 @@ export const api = {
     return request("/admin/stats", { headers: authHeaders() });
   },
 
+  adminGetHourlyUsers(days = 7): Promise<{ hourly: { time: string; count: number }[]; totalUsers: number }> {
+    return request(`/admin/users/hourly?days=${days}`, { headers: authHeaders() });
+  },
+
   async adminExportUsers(): Promise<void> {
     const res = await fetch(`${BASE}/admin/users/export`, { headers: authHeaders() });
     if (!res.ok) throw new Error("Export failed");

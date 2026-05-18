@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
 import AdminProfileForm from "../components/AdminProfileForm";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   DndContext,
   closestCenter,
@@ -114,6 +115,8 @@ export default function AdminPage() {
   const [editing, setEditing] = useState<Profile | null>(null);
   const [creating, setCreating] = useState(false);
   const [siteOpens, setSiteOpens] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [hourlyData, setHourlyData] = useState<{ time: string; label: string; count: number }[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -140,12 +143,22 @@ export default function AdminPage() {
   async function loadProfiles() {
     setLoading(true);
     try {
-      const [data, stats] = await Promise.all([
+      const [data, stats, hourly] = await Promise.all([
         api.getProfiles(),
         api.adminGetStats(),
+        api.adminGetHourlyUsers(7),
       ]);
       setProfiles(data);
       setSiteOpens(stats.siteOpens);
+      setTotalUsers(hourly.totalUsers);
+
+      const formatted = hourly.hourly.map((h) => {
+        const d = new Date(h.time);
+        const day = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" });
+        const hour = d.getHours().toString().padStart(2, "0") + ":00";
+        return { time: h.time, label: `${day} ${hour}`, count: h.count };
+      });
+      setHourlyData(formatted);
     } catch (err) {
       console.error(err);
     } finally {
@@ -259,22 +272,80 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-lg">👁</div>
-          <div className="flex-1">
-            <p className="text-xs text-dark-text-secondary">פתיחות מהבוט</p>
-            <p className="text-xl font-bold text-white">{siteOpens.toLocaleString()}</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-dark-card border border-dark-border rounded-xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-lg">👁</div>
+            <div>
+              <p className="text-xs text-dark-text-secondary">פתיחות מהבוט</p>
+              <p className="text-xl font-bold text-white">{siteOpens.toLocaleString()}</p>
+            </div>
           </div>
-          <button
-            onClick={() => api.adminExportUsers().catch(console.error)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition border-0 cursor-pointer flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-              <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-            </svg>
-            Export Users
-          </button>
+          <div className="bg-dark-card border border-dark-border rounded-xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-lg">👤</div>
+            <div>
+              <p className="text-xs text-dark-text-secondary">סה"כ משתמשים</p>
+              <p className="text-xl font-bold text-white">{totalUsers.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white">משתמשים חדשים לפי שעה (7 ימים)</h3>
+            <button
+              onClick={() => api.adminExportUsers().catch(console.error)}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition border-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+                <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+              </svg>
+              Export
+            </button>
+          </div>
+          {hourlyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={hourlyData}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ff6b6b" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ff6b6b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: "#999", fontSize: 10 }}
+                  interval="preserveStartEnd"
+                  tickLine={false}
+                  axisLine={{ stroke: "#333" }}
+                />
+                <YAxis
+                  tick={{ fill: "#999", fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#1e1e1e", border: "1px solid #333", borderRadius: "8px", fontSize: "12px" }}
+                  labelStyle={{ color: "#999" }}
+                  itemStyle={{ color: "#ff6b6b" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#ff6b6b"
+                  strokeWidth={2}
+                  fill="url(#colorCount)"
+                  name="משתמשים"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-dark-text-secondary text-sm">
+              אין נתונים עדיין
+            </div>
+          )}
         </div>
 
         {loading ? (
