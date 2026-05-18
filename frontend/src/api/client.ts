@@ -142,22 +142,13 @@ export const api = {
     return request(`/admin/users/hourly?days=${days}`, { headers: authHeaders() });
   },
 
-  adminGetAnalytics(): Promise<{
-    profileViewsHourly: { profileId: string; time: string; count: number }[];
-    profileViewsDaily: { profileId: string; time: string; count: number }[];
-    mediaClicksDaily: { profileId: string; time: string; count: number }[];
-    buttonClicksDaily: { buttonType: string; time: string; count: number }[];
+  adminGetAnalytics(period: "daily" | "weekly" | "monthly" = "daily"): Promise<{
+    uniqueSiteUsers: { time: string; count: number }[];
+    profileEntrances: { profileId: string; time: string; count: number }[];
+    buttonClicks: { profileId: string; time: string; count: number }[];
     profileNames: Record<string, string>;
   }> {
-    return request("/admin/analytics", { headers: authHeaders() });
-  },
-
-  adminGetProfileAnalytics(profileId: string): Promise<{
-    profile: Profile & { media: Array<{ s3Key: string; type: string; thumbnailUrl?: string; url?: string; order: number }> };
-    mediaClicksHourly: { s3Key: string; time: string; count: number }[];
-    buttonClicksHourly: { buttonType: string; buttonLabel?: string; time: string; count: number }[];
-  }> {
-    return request(`/admin/profile/${profileId}/analytics`, { headers: authHeaders() });
+    return request(`/admin/analytics?period=${period}`, { headers: authHeaders() });
   },
 
   async adminExportUsers(): Promise<void> {

@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import {
-  LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip,
+  BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 
@@ -12,73 +12,65 @@ const COLORS = [
   "#60a5fa", "#f87171", "#2dd4bf", "#c084fc", "#fbbf24",
 ];
 
-interface DataPoint {
-  profileId: string;
-  time: string;
-  count: number;
-}
-
-interface ButtonClickPoint {
-  buttonType: string;
-  time: string;
-  count: number;
-}
-
-function buildChartData(
-  raw: DataPoint[],
-  profileNames: Record<string, string>,
-  formatLabel: (iso: string) => string
-) {
-  const profileIds = [...new Set(raw.map((d) => d.profileId))];
-  const timeMap = new Map<string, Record<string, number>>();
-
-  for (const d of raw) {
-    const label = formatLabel(d.time);
-    if (!timeMap.has(label)) timeMap.set(label, {});
-    const row = timeMap.get(label)!;
-    row[d.profileId] = (row[d.profileId] || 0) + d.count;
-  }
-
-  const data = Array.from(timeMap.entries()).map(([label, counts]) => ({
-    label,
-    ...counts,
-  }));
-
-  return { data, profileIds, profileNames };
-}
-
-function formatHour(iso: string) {
-  const d = new Date(iso);
-  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")} ${d.getHours().toString().padStart(2, "0")}:00`;
-}
-
-function formatDay(iso: string) {
-  const d = new Date(iso);
-  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
-}
-
 const tooltipStyle = {
   contentStyle: { backgroundColor: "#1e1e1e", border: "1px solid #333", borderRadius: "8px", fontSize: "12px", color: "#eee" },
   labelStyle: { color: "#999" },
   itemStyle: { color: "#eee" },
 };
 
-function MultiLineChart({
+type Period = "daily" | "weekly" | "monthly";
+
+const PERIOD_LABELS: Record<Period, string> = { daily: "יומי", weekly: "שבועי", monthly: "חודשי" };
+
+interface ProfileDataPoint {
+  profileId: string;
+  time: string;
+  count: number;
+}
+
+function formatTime(iso: string, period: Period): string {
+  const d = new Date(iso);
+  if (period === "monthly") {
+    return `${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
+  }
+  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+}
+
+function buildGroupedData(
+  raw: ProfileDataPoint[],
+  profileNames: Record<string, string>,
+  period: Period
+) {
+  const profileIds = [...new Set(raw.map((d) => d.profileId))];
+  const timeMap = new Map<string, Record<string, number>>();
+
+  for (const d of raw) {
+    const label = formatTime(d.time, period);
+    if (!timeMap.has(label)) timeMap.set(label, {});
+    const row = timeMap.get(label)!;
+    row[d.profileId] = (row[d.profileId] || 0) + d.count;
+  }
+
+  const data = Array.from(timeMap.entries()).map(([label, counts]) => ({ label, ...counts }));
+  return { data, profileIds, profileNames };
+}
+
+function GroupedBarChart({
   title,
   raw,
   profileNames,
-  formatter,
-  height = 280,
+  period,
+  height = 300,
 }: {
   title: string;
-  raw: DataPoint[];
+  raw: ProfileDataPoint[];
   profileNames: Record<string, string>;
-  formatter: (iso: string) => string;
+  period: Period;
   height?: number;
 }) {
   const { data, profileIds } = useMemo(
-    () => buildChartData(raw, profileNames, formatter),
-    [raw, profileNames, formatter]
+    () => buildGroupedData(raw, profileNames, period),
+    [raw, profileNames, period]
   );
 
   if (data.length === 0) {
@@ -96,38 +88,16 @@ function MultiLineChart({
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
       <h3 className="text-sm font-semibold text-white mb-3">{title}</h3>
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={data}>
+        <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-          <XAxis
-            dataKey="label"
-            tick={{ fill: "#999", fontSize: 10 }}
-            interval="preserveStartEnd"
-            tickLine={false}
-            axisLine={{ stroke: "#333" }}
-          />
-          <YAxis
-            tick={{ fill: "#999", fontSize: 10 }}
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-          />
+          <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
+          <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
           <Tooltip {...tooltipStyle} />
-          <Legend
-            wrapperStyle={{ fontSize: "11px", color: "#ccc" }}
-            formatter={(value: string) => profileNames[value] || value}
-          />
+          <Legend wrapperStyle={{ fontSize: "11px", color: "#ccc" }} />
           {profileIds.map((id, i) => (
-            <Line
-              key={id}
-              type="monotone"
-              dataKey={id}
-              stroke={COLORS[i % COLORS.length]}
-              strokeWidth={2}
-              dot={false}
-              name={profileNames[id] || id}
-            />
+            <Bar key={id} dataKey={id} name={profileNames[id] || id} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
           ))}
-        </LineChart>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
@@ -135,63 +105,37 @@ function MultiLineChart({
 
 export default function AdminAnalyticsPage() {
   const navigate = useNavigate();
+  const [period, setPeriod] = useState<Period>("daily");
   const [loading, setLoading] = useState(true);
-  const [profileViewsHourly, setProfileViewsHourly] = useState<DataPoint[]>([]);
-  const [profileViewsDaily, setProfileViewsDaily] = useState<DataPoint[]>([]);
-  const [mediaClicksDaily, setMediaClicksDaily] = useState<DataPoint[]>([]);
-  const [buttonClicksDaily, setButtonClicksDaily] = useState<ButtonClickPoint[]>([]);
+  const [uniqueSiteUsers, setUniqueSiteUsers] = useState<{ time: string; count: number }[]>([]);
+  const [profileEntrances, setProfileEntrances] = useState<ProfileDataPoint[]>([]);
+  const [buttonClicks, setButtonClicks] = useState<ProfileDataPoint[]>([]);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+
+  const fetchData = useCallback((p: Period) => {
+    setLoading(true);
+    api.adminGetAnalytics(p).then((data) => {
+      setUniqueSiteUsers(data.uniqueSiteUsers);
+      setProfileEntrances(data.profileEntrances);
+      setButtonClicks(data.buttonClicks);
+      setProfileNames(data.profileNames);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     if (!localStorage.getItem("admin_token")) {
       navigate("/admin");
       return;
     }
-    api
-      .adminGetAnalytics()
-      .then((data) => {
-        setProfileViewsHourly(data.profileViewsHourly);
-        setProfileViewsDaily(data.profileViewsDaily);
-        setMediaClicksDaily(data.mediaClicksDaily);
-        setButtonClicksDaily(data.buttonClicksDaily || []);
-        setProfileNames(data.profileNames);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [navigate]);
+    fetchData(period);
+  }, [navigate, fetchData, period]);
 
-  const BUTTON_LABELS: Record<string, string> = { message: "הודעה", share: "שיתוף", link_button: "קישור" };
-
-  const buttonChartData = useMemo(() => {
-    const types = [...new Set(buttonClicksDaily.map((d) => d.buttonType))];
-    const timeMap = new Map<string, Record<string, number>>();
-    for (const d of buttonClicksDaily) {
-      const label = formatDay(d.time);
-      if (!timeMap.has(label)) timeMap.set(label, {});
-      const row = timeMap.get(label)!;
-      row[d.buttonType] = (row[d.buttonType] || 0) + d.count;
-    }
-    const data = Array.from(timeMap.entries()).map(([label, counts]) => ({ label, ...counts }));
-    return { data, types };
-  }, [buttonClicksDaily]);
-
-  const barData = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const d of profileViewsDaily) {
-      totals.set(d.profileId, (totals.get(d.profileId) || 0) + d.count);
-    }
-    return Array.from(totals.entries())
-      .map(([id, total]) => ({ name: profileNames[id] || id, total, id }))
-      .sort((a, b) => b.total - a.total);
-  }, [profileViewsDaily, profileNames]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-dark-bg">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const siteChartData = useMemo(() => {
+    return uniqueSiteUsers.map((d) => ({
+      label: formatTime(d.time, period),
+      users: d.count,
+    }));
+  }, [uniqueSiteUsers, period]);
 
   return (
     <div className="min-h-screen bg-dark-bg p-4">
@@ -206,82 +150,60 @@ export default function AdminAnalyticsPage() {
           </button>
         </div>
 
-        <MultiLineChart
-          title="צפיות בפרופילים - לפי שעה (7 ימים)"
-          raw={profileViewsHourly}
-          profileNames={profileNames}
-          formatter={formatHour}
-        />
-
-        <MultiLineChart
-          title="צפיות בפרופילים - לפי יום (30 ימים)"
-          raw={profileViewsDaily}
-          profileNames={profileNames}
-          formatter={formatDay}
-        />
-
-        <MultiLineChart
-          title="צפיות בתוכן - לפי יום (30 ימים)"
-          raw={mediaClicksDaily}
-          profileNames={profileNames}
-          formatter={formatDay}
-        />
-
-        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
-          <h3 className="text-sm font-semibold text-white mb-3">לחיצות על כפתורים - לפי יום (30 ימים)</h3>
-          {buttonChartData.data.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={buttonChartData.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
-                <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: "11px", color: "#ccc" }} formatter={(value: string) => BUTTON_LABELS[value] || value} />
-                {buttonChartData.types.map((type, i) => (
-                  <Line key={type} type="monotone" dataKey={type} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} name={BUTTON_LABELS[type] || type} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[280px] text-dark-text-secondary text-sm">אין נתונים עדיין</div>
-          )}
+        <div className="flex gap-2 mb-6">
+          {(["daily", "weekly", "monthly"] as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer border ${
+                period === p
+                  ? "bg-white text-black border-white"
+                  : "bg-dark-surface text-dark-text border-dark-border hover:bg-dark-border"
+              }`}
+            >
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
         </div>
 
-        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
-          <h3 className="text-sm font-semibold text-white mb-3">השוואת פרופילים - סה"כ צפיות (30 ימים)</h3>
-          {barData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={Math.max(200, barData.length * 40)}>
-              <BarChart data={barData} layout="vertical" margin={{ left: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fill: "#999", fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "#333" }}
-                  allowDecimals={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{ fill: "#ccc", fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={75}
-                />
-                <Tooltip {...tooltipStyle} />
-                <Bar dataKey="total" name="צפיות" radius={[0, 4, 4, 0]}>
-                  {barData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-dark-text-secondary text-sm">
-              אין נתונים עדיין
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold text-white mb-3">משתמשים ייחודיים בטלסקופ</h3>
+              {siteChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={siteChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
+                    <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} />
+                    <Bar dataKey="users" name="משתמשים" fill="#4ecdc4" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-dark-text-secondary text-sm">אין נתונים עדיין</div>
+              )}
             </div>
-          )}
-        </div>
+
+            <GroupedBarChart
+              title="כניסות ייחודיות לפרופילים"
+              raw={profileEntrances}
+              profileNames={profileNames}
+              period={period}
+            />
+
+            <GroupedBarChart
+              title="לחיצות על כפתורים (הודעה + קישורים)"
+              raw={buttonClicks}
+              profileNames={profileNames}
+              period={period}
+            />
+          </>
+        )}
       </div>
     </div>
   );

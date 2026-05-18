@@ -167,64 +167,41 @@ router.get("/stats", adminAuth, async (_req: Request, res: Response) => {
   }
 });
 
-router.get("/analytics", adminAuth, async (_req: Request, res: Response) => {
+router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
   try {
+    const period = (req.query.period as string) || "daily";
+
+    let since: Date;
+    let dateTrunc: Record<string, unknown>;
+
     const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    if (period === "monthly") {
+      since = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+      dateTrunc = { year: { $year: "$at" }, month: { $month: "$at" } };
+    } else if (period === "weekly") {
+      since = new Date(now.getTime() - 12 * 7 * 24 * 60 * 60 * 1000);
+      dateTrunc = { year: { $isoWeekYear: "$at" }, week: { $isoWeek: "$at" } };
+    } else {
+      since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      dateTrunc = { year: { $year: "$at" }, month: { $month: "$at" }, day: { $dayOfMonth: "$at" } };
+    }
 
-    const hourlyAgg = (type: string, since: Date) => [
-      { $match: { type, at: { $gte: since } } },
-      {
-        $group: {
-          _id: {
-            profileId: "$profileId",
-            year: { $year: "$at" },
-            month: { $month: "$at" },
-            day: { $dayOfMonth: "$at" },
-            hour: { $hour: "$at" },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
+    const uniqueProfileAgg = (type: string, matchExtra: Record<string, unknown> = {}) => [
+      { $match: { type, at: { $gte: since }, telegramUserId: { $ne: null }, ...matchExtra } },
+      { $group: { _id: { profileId: "$profileId", telegramUserId: "$telegramUserId", ...dateTrunc } } },
+      { $group: { _id: { profileId: "$_id.profileId", ...Object.fromEntries(Object.keys(dateTrunc).map(k => [k, `$_id.${k}`])) }, count: { $sum: 1 } } },
+      { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
     ];
 
-    const dailyAgg = (type: string, since: Date) => [
-      { $match: { type, at: { $gte: since } } },
-      {
-        $group: {
-          _id: {
-            profileId: "$profileId",
-            year: { $year: "$at" },
-            month: { $month: "$at" },
-            day: { $dayOfMonth: "$at" },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const } },
-    ];
-
-    const [profileViewsHourly, profileViewsDaily, mediaClicksDaily, buttonClicksDaily, profiles] = await Promise.all([
-      Event.aggregate(hourlyAgg("profile_click", sevenDaysAgo)),
-      Event.aggregate(dailyAgg("profile_click", thirtyDaysAgo)),
-      Event.aggregate(dailyAgg("media_click", thirtyDaysAgo)),
+    const [uniqueSiteUsers, profileEntrances, buttonClicks, profiles] = await Promise.all([
       Event.aggregate([
-        { $match: { type: "button_click", at: { $gte: thirtyDaysAgo } } },
-        {
-          $group: {
-            _id: {
-              buttonType: "$buttonType",
-              year: { $year: "$at" },
-              month: { $month: "$at" },
-              day: { $dayOfMonth: "$at" },
-            },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const } },
+        { $match: { type: "site_open", at: { $gte: since }, telegramUserId: { $ne: null } } },
+        { $group: { _id: { telegramUserId: "$telegramUserId", ...dateTrunc } } },
+        { $group: { _id: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [k, `$_id.${k}`])) }, count: { $sum: 1 } } },
+        { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
       ]),
+      Event.aggregate(uniqueProfileAgg("profile_click")),
+      Event.aggregate(uniqueProfileAgg("button_click", { buttonType: { $in: ["message", "link_button"] } })),
       Profile.find({}, { name: 1 }).lean(),
     ]);
 
@@ -233,96 +210,38 @@ router.get("/analytics", adminAuth, async (_req: Request, res: Response) => {
       profileNames[p._id.toString()] = p.name;
     }
 
-    const formatHourly = (r: { _id: { profileId: string; year: number; month: number; day: number; hour: number }; count: number }) => ({
-      profileId: r._id.profileId,
-      time: new Date(r._id.year, r._id.month - 1, r._id.day, r._id.hour).toISOString(),
-      count: r.count,
-    });
-
-    const formatDaily = (r: { _id: { profileId: string; year: number; month: number; day: number }; count: number }) => ({
-      profileId: r._id.profileId,
-      time: new Date(r._id.year, r._id.month - 1, r._id.day).toISOString(),
-      count: r.count,
-    });
+    function timeFromBucket(bucket: Record<string, number>): string {
+      if (period === "monthly") {
+        return new Date(bucket.year, bucket.month - 1, 1).toISOString();
+      } else if (period === "weekly") {
+        const jan4 = new Date(bucket.year, 0, 4);
+        const dayOfWeek = jan4.getDay() || 7;
+        const weekStart = new Date(jan4.getTime() + ((bucket.week - 1) * 7 - (dayOfWeek - 1)) * 86400000);
+        return weekStart.toISOString();
+      } else {
+        return new Date(bucket.year, bucket.month - 1, bucket.day).toISOString();
+      }
+    }
 
     res.json({
-      profileViewsHourly: profileViewsHourly.map(formatHourly),
-      profileViewsDaily: profileViewsDaily.map(formatDaily),
-      mediaClicksDaily: mediaClicksDaily.map(formatDaily),
-      buttonClicksDaily: buttonClicksDaily.map((r) => ({
-        buttonType: r._id.buttonType,
-        time: new Date(r._id.year, r._id.month - 1, r._id.day).toISOString(),
+      uniqueSiteUsers: uniqueSiteUsers.map((r: { _id: Record<string, number>; count: number }) => ({
+        time: timeFromBucket(r._id),
+        count: r.count,
+      })),
+      profileEntrances: profileEntrances.map((r: { _id: Record<string, number | string>; count: number }) => ({
+        profileId: r._id.profileId as string,
+        time: timeFromBucket(r._id as Record<string, number>),
+        count: r.count,
+      })),
+      buttonClicks: buttonClicks.map((r: { _id: Record<string, number | string>; count: number }) => ({
+        profileId: r._id.profileId as string,
+        time: timeFromBucket(r._id as Record<string, number>),
         count: r.count,
       })),
       profileNames,
     });
   } catch (err) {
     console.error("GET /api/admin/analytics error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-router.get("/profile/:id/analytics", adminAuth, async (req: Request, res: Response) => {
-  try {
-    const profileId = req.params.id;
-    const profile = await Profile.findById(profileId).lean();
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
-
-    const signed = await signProfileUrls(profile);
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-    const [mediaClicksHourly, buttonClicksHourly] = await Promise.all([
-      Event.aggregate([
-        { $match: { type: "media_click", profileId, at: { $gte: sevenDaysAgo } } },
-        {
-          $group: {
-            _id: {
-              s3Key: "$s3Key",
-              year: { $year: "$at" },
-              month: { $month: "$at" },
-              day: { $dayOfMonth: "$at" },
-              hour: { $hour: "$at" },
-            },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
-      ]),
-      Event.aggregate([
-        { $match: { type: "button_click", profileId, at: { $gte: sevenDaysAgo } } },
-        {
-          $group: {
-            _id: {
-              buttonType: "$buttonType",
-              buttonLabel: "$buttonLabel",
-              year: { $year: "$at" },
-              month: { $month: "$at" },
-              day: { $dayOfMonth: "$at" },
-              hour: { $hour: "$at" },
-            },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
-      ]),
-    ]);
-
-    res.json({
-      profile: signed,
-      mediaClicksHourly: mediaClicksHourly.map((r) => ({
-        s3Key: r._id.s3Key,
-        time: new Date(r._id.year, r._id.month - 1, r._id.day, r._id.hour).toISOString(),
-        count: r.count,
-      })),
-      buttonClicksHourly: buttonClicksHourly.map((r) => ({
-        buttonType: r._id.buttonType,
-        buttonLabel: r._id.buttonLabel,
-        time: new Date(r._id.year, r._id.month - 1, r._id.day, r._id.hour).toISOString(),
-        count: r.count,
-      })),
-    });
-  } catch (err) {
-    console.error("GET /api/admin/profile/:id/analytics error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
