@@ -41,15 +41,20 @@ function buildGroupedData(
   profileNames: Record<string, string>,
   period: Period
 ) {
-  const profileIds = [...new Set(raw.map((d) => d.profileId))];
+  const totals = new Map<string, number>();
   const timeMap = new Map<string, Record<string, number>>();
 
   for (const d of raw) {
+    totals.set(d.profileId, (totals.get(d.profileId) || 0) + d.count);
     const label = formatTime(d.time, period);
     if (!timeMap.has(label)) timeMap.set(label, {});
     const row = timeMap.get(label)!;
     row[d.profileId] = (row[d.profileId] || 0) + d.count;
   }
+
+  const profileIds = [...totals.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([id]) => id);
 
   const data = Array.from(timeMap.entries()).map(([label, counts]) => ({ label, ...counts }));
   return { data, profileIds, profileNames };
