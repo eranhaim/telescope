@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import Profile from "../models/Profile";
 import SiteStats from "../models/SiteStats";
 import TelegramUser from "../models/TelegramUser";
+import Event from "../models/Event";
 
 const router = Router();
 
@@ -28,13 +29,16 @@ async function upsertTelegramUser(user: TelegramUserPayload, updates: Record<str
         },
         $inc: updates.$inc as Record<string, number> || {},
         $setOnInsert: { firstSeen: new Date() },
-        ...(updates.$push ? { $push: updates.$push } : {}),
       },
       { upsert: true }
     );
   } catch (err) {
     console.error("Failed to upsert TelegramUser:", err);
   }
+}
+
+function getSource(body: Record<string, unknown>): "telegram" | "browser" {
+  return body?.source === "telegram" ? "telegram" : "browser";
 }
 
 router.post("/site-open", async (req: Request, res: Response) => {
@@ -46,6 +50,15 @@ router.post("/site-open", async (req: Request, res: Response) => {
     );
 
     const telegramUser = req.body?.telegramUser as TelegramUserPayload | undefined;
+    const source = getSource(req.body);
+
+    await Event.create({
+      type: "site_open",
+      telegramUserId: telegramUser?.id,
+      source,
+      at: new Date(),
+    });
+
     if (telegramUser?.id) {
       await upsertTelegramUser(telegramUser, { $inc: { appOpens: 1 } });
     }
@@ -62,13 +75,20 @@ router.post("/profile/:id", async (req: Request, res: Response) => {
     await Profile.findByIdAndUpdate(req.params.id, { $inc: { clicks: 1 } });
 
     const telegramUserId = req.body?.telegramUserId as number | undefined;
+    const source = getSource(req.body);
+
+    await Event.create({
+      type: "profile_click",
+      profileId: req.params.id,
+      telegramUserId,
+      source,
+      at: new Date(),
+    });
+
     if (telegramUserId) {
       await TelegramUser.findOneAndUpdate(
         { telegramId: telegramUserId },
-        {
-          $set: { lastSeen: new Date() },
-          $push: { activity: { type: "profile_click", profileId: req.params.id, at: new Date() } },
-        }
+        { $set: { lastSeen: new Date() } }
       );
     }
 
@@ -85,25 +105,63 @@ router.post("/media/:profileId/:s3Key(*)", async (req: Request, res: Response) =
     const s3Key = Array.isArray(req.params.s3Key)
       ? req.params.s3Key.join("/")
       : req.params.s3Key;
+
     await Profile.findOneAndUpdate(
       { _id: profileId, "media.s3Key": s3Key },
       { $inc: { "media.$.clicks": 1 } }
     );
 
     const telegramUserId = req.body?.telegramUserId as number | undefined;
+    const source = getSource(req.body);
+
+    await Event.create({
+      type: "media_click",
+      profileId,
+      s3Key,
+      telegramUserId,
+      source,
+      at: new Date(),
+    });
+
     if (telegramUserId) {
       await TelegramUser.findOneAndUpdate(
         { telegramId: telegramUserId },
-        {
-          $set: { lastSeen: new Date() },
-          $push: { activity: { type: "media_click", profileId, s3Key, at: new Date() } },
-        }
+        { $set: { lastSeen: new Date() } }
       );
     }
 
     res.json({ success: true });
   } catch (err) {
     console.error("POST /api/track/media error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/button-click", async (req: Request, res: Response) => {
+  try {
+    const { profileId, buttonType, buttonLabel, telegramUserId } = req.body;
+    const source = getSource(req.body);
+
+    await Event.create({
+      type: "button_click",
+      profileId,
+      buttonType,
+      buttonLabel,
+      telegramUserId,
+      source,
+      at: new Date(),
+    });
+
+    if (telegramUserId) {
+      await TelegramUser.findOneAndUpdate(
+        { telegramId: telegramUserId },
+        { $set: { lastSeen: new Date() } }
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("POST /api/track/button-click error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

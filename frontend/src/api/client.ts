@@ -146,6 +146,7 @@ export const api = {
     profileViewsHourly: { profileId: string; time: string; count: number }[];
     profileViewsDaily: { profileId: string; time: string; count: number }[];
     mediaClicksDaily: { profileId: string; time: string; count: number }[];
+    buttonClicksDaily: { buttonType: string; time: string; count: number }[];
     profileNames: Record<string, string>;
   }> {
     return request("/admin/analytics", { headers: authHeaders() });
@@ -165,28 +166,41 @@ export const api = {
 
   trackSiteOpen(): void {
     const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const source = window.Telegram?.WebApp ? "telegram" : "browser";
     fetch(`${BASE}/track/site-open`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(user ? { telegramUser: user } : {}),
+      body: JSON.stringify({ source, ...(user ? { telegramUser: user } : {}) }),
     }).catch(() => {});
   },
 
   trackProfileClick(id: string): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const source = window.Telegram?.WebApp ? "telegram" : "browser";
     fetch(`${BASE}/track/profile/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(telegramUserId ? { telegramUserId } : {}),
+      body: JSON.stringify({ source, ...(telegramUserId ? { telegramUserId } : {}) }),
     }).catch(() => {});
   },
 
   trackMediaClick(profileId: string, s3Key: string): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const source = window.Telegram?.WebApp ? "telegram" : "browser";
     fetch(`${BASE}/track/media/${profileId}/${encodeURIComponent(s3Key)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(telegramUserId ? { telegramUserId } : {}),
+      body: JSON.stringify({ source, ...(telegramUserId ? { telegramUserId } : {}) }),
+    }).catch(() => {});
+  },
+
+  trackButtonClick(profileId: string, buttonType: string, buttonLabel?: string): void {
+    const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const source = window.Telegram?.WebApp ? "telegram" : "browser";
+    fetch(`${BASE}/track/button-click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId, buttonType, buttonLabel, source, ...(telegramUserId ? { telegramUserId } : {}) }),
     }).catch(() => {});
   },
 };

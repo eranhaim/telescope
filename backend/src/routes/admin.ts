@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import Profile from "../models/Profile";
 import SiteStats from "../models/SiteStats";
 import TelegramUser from "../models/TelegramUser";
+import Event from "../models/Event";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
@@ -172,50 +173,52 @@ router.get("/analytics", adminAuth, async (_req: Request, res: Response) => {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [profileViewsHourly, profileViewsDaily, mediaClicksDaily, profiles] = await Promise.all([
-      TelegramUser.aggregate([
-        { $unwind: "$activity" },
-        { $match: { "activity.type": "profile_click", "activity.at": { $gte: sevenDaysAgo } } },
-        {
-          $group: {
-            _id: {
-              profileId: "$activity.profileId",
-              year: { $year: "$activity.at" },
-              month: { $month: "$activity.at" },
-              day: { $dayOfMonth: "$activity.at" },
-              hour: { $hour: "$activity.at" },
-            },
-            count: { $sum: 1 },
+    const hourlyAgg = (type: string, since: Date) => [
+      { $match: { type, at: { $gte: since } } },
+      {
+        $group: {
+          _id: {
+            profileId: "$profileId",
+            year: { $year: "$at" },
+            month: { $month: "$at" },
+            day: { $dayOfMonth: "$at" },
+            hour: { $hour: "$at" },
           },
+          count: { $sum: 1 },
         },
-        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
-      ]),
-      TelegramUser.aggregate([
-        { $unwind: "$activity" },
-        { $match: { "activity.type": "profile_click", "activity.at": { $gte: thirtyDaysAgo } } },
-        {
-          $group: {
-            _id: {
-              profileId: "$activity.profileId",
-              year: { $year: "$activity.at" },
-              month: { $month: "$activity.at" },
-              day: { $dayOfMonth: "$activity.at" },
-            },
-            count: { $sum: 1 },
+      },
+      { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
+    ];
+
+    const dailyAgg = (type: string, since: Date) => [
+      { $match: { type, at: { $gte: since } } },
+      {
+        $group: {
+          _id: {
+            profileId: "$profileId",
+            year: { $year: "$at" },
+            month: { $month: "$at" },
+            day: { $dayOfMonth: "$at" },
           },
+          count: { $sum: 1 },
         },
-        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const } },
-      ]),
-      TelegramUser.aggregate([
-        { $unwind: "$activity" },
-        { $match: { "activity.type": "media_click", "activity.at": { $gte: thirtyDaysAgo } } },
+      },
+      { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const } },
+    ];
+
+    const [profileViewsHourly, profileViewsDaily, mediaClicksDaily, buttonClicksDaily, profiles] = await Promise.all([
+      Event.aggregate(hourlyAgg("profile_click", sevenDaysAgo)),
+      Event.aggregate(dailyAgg("profile_click", thirtyDaysAgo)),
+      Event.aggregate(dailyAgg("media_click", thirtyDaysAgo)),
+      Event.aggregate([
+        { $match: { type: "button_click", at: { $gte: thirtyDaysAgo } } },
         {
           $group: {
             _id: {
-              profileId: "$activity.profileId",
-              year: { $year: "$activity.at" },
-              month: { $month: "$activity.at" },
-              day: { $dayOfMonth: "$activity.at" },
+              buttonType: "$buttonType",
+              year: { $year: "$at" },
+              month: { $month: "$at" },
+              day: { $dayOfMonth: "$at" },
             },
             count: { $sum: 1 },
           },
@@ -246,6 +249,11 @@ router.get("/analytics", adminAuth, async (_req: Request, res: Response) => {
       profileViewsHourly: profileViewsHourly.map(formatHourly),
       profileViewsDaily: profileViewsDaily.map(formatDaily),
       mediaClicksDaily: mediaClicksDaily.map(formatDaily),
+      buttonClicksDaily: buttonClicksDaily.map((r) => ({
+        buttonType: r._id.buttonType,
+        time: new Date(r._id.year, r._id.month - 1, r._id.day).toISOString(),
+        count: r.count,
+      })),
       profileNames,
     });
   } catch (err) {
@@ -313,10 +321,22 @@ router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
 
     sheet.getRow(1).font = { bold: true };
 
+    const eventCounts = await Event.aggregate([
+      { $match: { telegramUserId: { $ne: null }, type: { $in: ["profile_click", "media_click", "button_click"] } } },
+      { $group: { _id: { telegramUserId: "$telegramUserId", type: "$type" }, count: { $sum: 1 } } },
+    ]);
+
+    const countMap: Record<number, { profileClicks: number; mediaClicks: number; buttonClicks: number }> = {};
+    for (const e of eventCounts) {
+      const uid = e._id.telegramUserId;
+      if (!countMap[uid]) countMap[uid] = { profileClicks: 0, mediaClicks: 0, buttonClicks: 0 };
+      if (e._id.type === "profile_click") countMap[uid].profileClicks = e.count;
+      else if (e._id.type === "media_click") countMap[uid].mediaClicks = e.count;
+      else if (e._id.type === "button_click") countMap[uid].buttonClicks = e.count;
+    }
+
     for (const user of users) {
-      const activity = user.activity || [];
-      const profileClicks = activity.filter((a: { type: string }) => a.type === "profile_click").length;
-      const mediaClicks = activity.filter((a: { type: string }) => a.type === "media_click").length;
+      const counts = countMap[user.telegramId] || { profileClicks: 0, mediaClicks: 0, buttonClicks: 0 };
 
       sheet.addRow({
         telegramId: user.telegramId,
@@ -328,8 +348,8 @@ router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
         lastSeen: user.lastSeen ? new Date(user.lastSeen).toISOString() : "",
         startCount: user.startCount || 0,
         appOpens: user.appOpens || 0,
-        profileClicks,
-        mediaClicks,
+        profileClicks: counts.profileClicks,
+        mediaClicks: counts.mediaClicks,
       });
     }
 

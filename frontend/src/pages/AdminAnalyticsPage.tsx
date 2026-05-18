@@ -18,6 +18,12 @@ interface DataPoint {
   count: number;
 }
 
+interface ButtonClickPoint {
+  buttonType: string;
+  time: string;
+  count: number;
+}
+
 function buildChartData(
   raw: DataPoint[],
   profileNames: Record<string, string>,
@@ -52,8 +58,9 @@ function formatDay(iso: string) {
 }
 
 const tooltipStyle = {
-  contentStyle: { backgroundColor: "#1e1e1e", border: "1px solid #333", borderRadius: "8px", fontSize: "12px" },
+  contentStyle: { backgroundColor: "#1e1e1e", border: "1px solid #333", borderRadius: "8px", fontSize: "12px", color: "#eee" },
   labelStyle: { color: "#999" },
+  itemStyle: { color: "#eee" },
 };
 
 function MultiLineChart({
@@ -132,6 +139,7 @@ export default function AdminAnalyticsPage() {
   const [profileViewsHourly, setProfileViewsHourly] = useState<DataPoint[]>([]);
   const [profileViewsDaily, setProfileViewsDaily] = useState<DataPoint[]>([]);
   const [mediaClicksDaily, setMediaClicksDaily] = useState<DataPoint[]>([]);
+  const [buttonClicksDaily, setButtonClicksDaily] = useState<ButtonClickPoint[]>([]);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -145,11 +153,27 @@ export default function AdminAnalyticsPage() {
         setProfileViewsHourly(data.profileViewsHourly);
         setProfileViewsDaily(data.profileViewsDaily);
         setMediaClicksDaily(data.mediaClicksDaily);
+        setButtonClicksDaily(data.buttonClicksDaily || []);
         setProfileNames(data.profileNames);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  const BUTTON_LABELS: Record<string, string> = { message: "הודעה", share: "שיתוף", link_button: "קישור" };
+
+  const buttonChartData = useMemo(() => {
+    const types = [...new Set(buttonClicksDaily.map((d) => d.buttonType))];
+    const timeMap = new Map<string, Record<string, number>>();
+    for (const d of buttonClicksDaily) {
+      const label = formatDay(d.time);
+      if (!timeMap.has(label)) timeMap.set(label, {});
+      const row = timeMap.get(label)!;
+      row[d.buttonType] = (row[d.buttonType] || 0) + d.count;
+    }
+    const data = Array.from(timeMap.entries()).map(([label, counts]) => ({ label, ...counts }));
+    return { data, types };
+  }, [buttonClicksDaily]);
 
   const barData = useMemo(() => {
     const totals = new Map<string, number>();
@@ -202,6 +226,26 @@ export default function AdminAnalyticsPage() {
           profileNames={profileNames}
           formatter={formatDay}
         />
+
+        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+          <h3 className="text-sm font-semibold text-white mb-3">לחיצות על כפתורים - לפי יום (30 ימים)</h3>
+          {buttonChartData.data.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={buttonChartData.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
+                <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip {...tooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: "11px", color: "#ccc" }} formatter={(value: string) => BUTTON_LABELS[value] || value} />
+                {buttonChartData.types.map((type, i) => (
+                  <Line key={type} type="monotone" dataKey={type} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} name={BUTTON_LABELS[type] || type} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[280px] text-dark-text-secondary text-sm">אין נתונים עדיין</div>
+          )}
+        </div>
 
         <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
           <h3 className="text-sm font-semibold text-white mb-3">השוואת פרופילים - סה"כ צפיות (30 ימים)</h3>
