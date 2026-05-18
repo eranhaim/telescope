@@ -138,15 +138,42 @@ export const api = {
     return request("/admin/stats", { headers: authHeaders() });
   },
 
+  async adminExportUsers(): Promise<void> {
+    const res = await fetch(`${BASE}/admin/users/export`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Export failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "telegram_users.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
   trackSiteOpen(): void {
-    fetch(`${BASE}/track/site-open`, { method: "POST" }).catch(() => {});
+    const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    fetch(`${BASE}/track/site-open`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(user ? { telegramUser: user } : {}),
+    }).catch(() => {});
   },
 
   trackProfileClick(id: string): void {
-    fetch(`${BASE}/track/profile/${id}`, { method: "POST" }).catch(() => {});
+    const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    fetch(`${BASE}/track/profile/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(telegramUserId ? { telegramUserId } : {}),
+    }).catch(() => {});
   },
 
   trackMediaClick(profileId: string, s3Key: string): void {
-    fetch(`${BASE}/track/media/${profileId}/${encodeURIComponent(s3Key)}`, { method: "POST" }).catch(() => {});
+    const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    fetch(`${BASE}/track/media/${profileId}/${encodeURIComponent(s3Key)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(telegramUserId ? { telegramUserId } : {}),
+    }).catch(() => {});
   },
 };

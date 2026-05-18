@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
+import ExcelJS from "exceljs";
 import Profile from "../models/Profile";
 import SiteStats from "../models/SiteStats";
+import TelegramUser from "../models/TelegramUser";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
@@ -160,6 +162,60 @@ router.get("/stats", adminAuth, async (_req: Request, res: Response) => {
     res.json({ siteOpens: siteOpens?.count || 0 });
   } catch (err) {
     console.error("GET /api/admin/stats error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const users = await TelegramUser.find().sort({ lastSeen: -1 }).lean();
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Telegram Users");
+
+    sheet.columns = [
+      { header: "Telegram ID", key: "telegramId", width: 15 },
+      { header: "First Name", key: "firstName", width: 18 },
+      { header: "Last Name", key: "lastName", width: 18 },
+      { header: "Username", key: "username", width: 20 },
+      { header: "Language", key: "languageCode", width: 10 },
+      { header: "First Seen", key: "firstSeen", width: 22 },
+      { header: "Last Seen", key: "lastSeen", width: 22 },
+      { header: "/start Count", key: "startCount", width: 14 },
+      { header: "App Opens", key: "appOpens", width: 12 },
+      { header: "Profile Clicks", key: "profileClicks", width: 15 },
+      { header: "Media Clicks", key: "mediaClicks", width: 14 },
+    ];
+
+    sheet.getRow(1).font = { bold: true };
+
+    for (const user of users) {
+      const activity = user.activity || [];
+      const profileClicks = activity.filter((a: { type: string }) => a.type === "profile_click").length;
+      const mediaClicks = activity.filter((a: { type: string }) => a.type === "media_click").length;
+
+      sheet.addRow({
+        telegramId: user.telegramId,
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        username: user.username ? `@${user.username}` : "",
+        languageCode: user.languageCode || "",
+        firstSeen: user.firstSeen ? new Date(user.firstSeen).toISOString() : "",
+        lastSeen: user.lastSeen ? new Date(user.lastSeen).toISOString() : "",
+        startCount: user.startCount || 0,
+        appOpens: user.appOpens || 0,
+        profileClicks,
+        mediaClicks,
+      });
+    }
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=telegram_users.xlsx");
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error("GET /api/admin/users/export error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
