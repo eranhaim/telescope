@@ -119,16 +119,20 @@ export default function AdminAnalyticsPage() {
   const [onlyfansClicks, setOnlyfansClicks] = useState<ProfileDataPoint[]>([]);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
 
-  const fetchData = useCallback((p: Period) => {
-    setLoading(true);
-    api.adminGetAnalytics(p).then((data) => {
+  const fetchData = useCallback(async (p: Period) => {
+    try {
+      const data = await api.adminGetAnalytics(p);
       setUniqueSiteUsers(data.uniqueSiteUsers);
       setProfileEntrances(data.profileEntrances);
       setMessageClicks(data.messageClicks);
       setTelegramGroupClicks(data.telegramGroupClicks);
       setOnlyfansClicks(data.onlyfansClicks);
       setProfileNames(data.profileNames);
-    }).catch(console.error).finally(() => setLoading(false));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -136,6 +140,7 @@ export default function AdminAnalyticsPage() {
       navigate("/admin");
       return;
     }
+    setLoading(true);
     fetchData(period);
   }, [navigate, fetchData, period]);
 
