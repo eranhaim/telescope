@@ -145,7 +145,8 @@ export const api = {
   adminGetAnalytics(period: "daily" | "weekly" | "monthly" = "daily"): Promise<{
     uniqueSiteUsers: { time: string; count: number }[];
     profileEntrances: { profileId: string; time: string; count: number }[];
-    buttonClicks: { profileId: string; time: string; count: number }[];
+    messageClicks: { profileId: string; time: string; count: number }[];
+    linkClicks: { profileId: string; time: string; count: number }[];
     profileNames: Record<string, string>;
   }> {
     return request(`/admin/analytics?period=${period}`, { headers: authHeaders() });

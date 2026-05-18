@@ -193,7 +193,7 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
       { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
     ];
 
-    const [uniqueSiteUsers, profileEntrances, buttonClicks, profiles] = await Promise.all([
+    const [uniqueSiteUsers, profileEntrances, messageClicks, linkClicks, profiles] = await Promise.all([
       Event.aggregate([
         { $match: { type: "site_open", at: { $gte: since }, telegramUserId: { $ne: null } } },
         { $group: { _id: { telegramUserId: "$telegramUserId", ...dateTrunc } } },
@@ -201,7 +201,8 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
         { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
       ]),
       Event.aggregate(uniqueProfileAgg("profile_click")),
-      Event.aggregate(uniqueProfileAgg("button_click", { buttonType: { $in: ["message", "link_button"] } })),
+      Event.aggregate(uniqueProfileAgg("button_click", { buttonType: "message" })),
+      Event.aggregate(uniqueProfileAgg("button_click", { buttonType: "link_button" })),
       Profile.find({}, { name: 1 }).lean(),
     ]);
 
@@ -233,7 +234,12 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
         time: timeFromBucket(r._id as Record<string, number>),
         count: r.count,
       })),
-      buttonClicks: buttonClicks.map((r: { _id: Record<string, number | string>; count: number }) => ({
+      messageClicks: messageClicks.map((r: { _id: Record<string, number | string>; count: number }) => ({
+        profileId: r._id.profileId as string,
+        time: timeFromBucket(r._id as Record<string, number>),
+        count: r.count,
+      })),
+      linkClicks: linkClicks.map((r: { _id: Record<string, number | string>; count: number }) => ({
         profileId: r._id.profileId as string,
         time: timeFromBucket(r._id as Record<string, number>),
         count: r.count,

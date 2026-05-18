@@ -109,7 +109,8 @@ export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [uniqueSiteUsers, setUniqueSiteUsers] = useState<{ time: string; count: number }[]>([]);
   const [profileEntrances, setProfileEntrances] = useState<ProfileDataPoint[]>([]);
-  const [buttonClicks, setButtonClicks] = useState<ProfileDataPoint[]>([]);
+  const [messageClicks, setMessageClicks] = useState<ProfileDataPoint[]>([]);
+  const [linkClicks, setLinkClicks] = useState<ProfileDataPoint[]>([]);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
 
   const fetchData = useCallback((p: Period) => {
@@ -117,7 +118,8 @@ export default function AdminAnalyticsPage() {
     api.adminGetAnalytics(p).then((data) => {
       setUniqueSiteUsers(data.uniqueSiteUsers);
       setProfileEntrances(data.profileEntrances);
-      setButtonClicks(data.buttonClicks);
+      setMessageClicks(data.messageClicks);
+      setLinkClicks(data.linkClicks);
       setProfileNames(data.profileNames);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
@@ -197,8 +199,15 @@ export default function AdminAnalyticsPage() {
             />
 
             <GroupedBarChart
-              title="לחיצות על כפתורים (הודעה + קישורים)"
-              raw={buttonClicks}
+              title="לחיצות על הודעה"
+              raw={messageClicks}
+              profileNames={profileNames}
+              period={period}
+            />
+
+            <GroupedBarChart
+              title="לחיצות על קישורים"
+              raw={linkClicks}
               profileNames={profileNames}
               period={period}
             />
