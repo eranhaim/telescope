@@ -262,6 +262,71 @@ router.get("/analytics", adminAuth, async (_req: Request, res: Response) => {
   }
 });
 
+router.get("/profile/:id/analytics", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const profileId = req.params.id;
+    const profile = await Profile.findById(profileId).lean();
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+    const signed = await signProfileUrls(profile);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [mediaClicksHourly, buttonClicksHourly] = await Promise.all([
+      Event.aggregate([
+        { $match: { type: "media_click", profileId, at: { $gte: sevenDaysAgo } } },
+        {
+          $group: {
+            _id: {
+              s3Key: "$s3Key",
+              year: { $year: "$at" },
+              month: { $month: "$at" },
+              day: { $dayOfMonth: "$at" },
+              hour: { $hour: "$at" },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
+      ]),
+      Event.aggregate([
+        { $match: { type: "button_click", profileId, at: { $gte: sevenDaysAgo } } },
+        {
+          $group: {
+            _id: {
+              buttonType: "$buttonType",
+              buttonLabel: "$buttonLabel",
+              year: { $year: "$at" },
+              month: { $month: "$at" },
+              day: { $dayOfMonth: "$at" },
+              hour: { $hour: "$at" },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
+      ]),
+    ]);
+
+    res.json({
+      profile: signed,
+      mediaClicksHourly: mediaClicksHourly.map((r) => ({
+        s3Key: r._id.s3Key,
+        time: new Date(r._id.year, r._id.month - 1, r._id.day, r._id.hour).toISOString(),
+        count: r.count,
+      })),
+      buttonClicksHourly: buttonClicksHourly.map((r) => ({
+        buttonType: r._id.buttonType,
+        buttonLabel: r._id.buttonLabel,
+        time: new Date(r._id.year, r._id.month - 1, r._id.day, r._id.hour).toISOString(),
+        count: r.count,
+      })),
+    });
+  } catch (err) {
+    console.error("GET /api/admin/profile/:id/analytics error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/users/hourly", adminAuth, async (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || 7;

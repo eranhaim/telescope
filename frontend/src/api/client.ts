@@ -152,6 +152,14 @@ export const api = {
     return request("/admin/analytics", { headers: authHeaders() });
   },
 
+  adminGetProfileAnalytics(profileId: string): Promise<{
+    profile: Profile & { media: Array<{ s3Key: string; type: string; thumbnailUrl?: string; url?: string; order: number }> };
+    mediaClicksHourly: { s3Key: string; time: string; count: number }[];
+    buttonClicksHourly: { buttonType: string; buttonLabel?: string; time: string; count: number }[];
+  }> {
+    return request(`/admin/profile/${profileId}/analytics`, { headers: authHeaders() });
+  },
+
   async adminExportUsers(): Promise<void> {
     const res = await fetch(`${BASE}/admin/users/export`, { headers: authHeaders() });
     if (!res.ok) throw new Error("Export failed");

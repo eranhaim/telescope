@@ -4,6 +4,7 @@ import ExplorePage from "./pages/ExplorePage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
+import AdminProfileAnalyticsPage from "./pages/AdminProfileAnalyticsPage";
 
 export default function App() {
   useTelegram();
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/profile/:id" element={<ProfilePage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+        <Route path="/admin/profile-analytics/:id" element={<AdminProfileAnalyticsPage />} />
       </Routes>
     </BrowserRouter>
   );
