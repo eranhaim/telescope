@@ -146,6 +146,21 @@ export default function AdminAnalyticsPage() {
     }));
   }, [uniqueSiteUsers, period]);
 
+  const totalClicksData = useMemo(() => {
+    const timeMap = new Map<string, { message: number; telegram: number; onlyfans: number }>();
+    const sumInto = (data: ProfileDataPoint[], key: "message" | "telegram" | "onlyfans") => {
+      for (const d of data) {
+        const label = formatTime(d.time, period);
+        if (!timeMap.has(label)) timeMap.set(label, { message: 0, telegram: 0, onlyfans: 0 });
+        timeMap.get(label)![key] += d.count;
+      }
+    };
+    sumInto(messageClicks, "message");
+    sumInto(telegramGroupClicks, "telegram");
+    sumInto(onlyfansClicks, "onlyfans");
+    return Array.from(timeMap.entries()).map(([label, counts]) => ({ label, ...counts }));
+  }, [messageClicks, telegramGroupClicks, onlyfansClicks, period]);
+
   return (
     <div className="min-h-screen bg-dark-bg p-4">
       <div className="max-w-4xl mx-auto">
@@ -225,6 +240,26 @@ export default function AdminAnalyticsPage() {
               profileNames={profileNames}
               period={period}
             />
+
+            <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold text-white mb-3">סה"כ לחיצות לפי סוג</h3>
+              {totalClicksData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={totalClicksData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
+                    <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} />
+                    <Legend wrapperStyle={{ fontSize: "11px", color: "#ccc" }} />
+                    <Bar dataKey="message" name="הודעה" fill="#ff6b6b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="telegram" name="קבוצת טלגרם" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="onlyfans" name="OnlyFans" fill="#f472b6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-dark-text-secondary text-sm">אין נתונים עדיין</div>
+              )}
+            </div>
           </>
         )}
       </div>
