@@ -13,6 +13,13 @@ import { generateImageThumbnail } from "../services/imageThumbnail";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
+function inferLinkType(url: string): "telegram_group" | "onlyfans" | "other" {
+  const lower = (url || "").toLowerCase();
+  if (lower.includes("t.me") || lower.includes("telegram")) return "telegram_group";
+  if (lower.includes("onlyfans")) return "onlyfans";
+  return "other";
+}
+
 function normalizeTelegramLink(link: string): string {
   if (!link) return "";
   const trimmed = link.trim();
@@ -37,6 +44,7 @@ router.post("/profiles", adminAuth, async (req: Request, res: Response) => {
   try {
     const data = { ...req.body };
     if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink);
+    if (data.linkButtons) data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
     const profile = await Profile.create(data);
     res.status(201).json(profile);
   } catch (err) {
@@ -66,6 +74,7 @@ router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
   try {
     const data = { ...req.body };
     if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink);
+    if (data.linkButtons) data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
     const profile = await Profile.findByIdAndUpdate(req.params.id, data, { new: true });
     if (!profile) {
       res.status(404).json({ error: "Profile not found" });

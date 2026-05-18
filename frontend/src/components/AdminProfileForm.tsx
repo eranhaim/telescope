@@ -237,19 +237,6 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
         <div className="space-y-2 mb-2">
           {linkButtons.map((btn, i) => (
             <div key={i} className="flex gap-2 items-center">
-              <select
-                value={btn.linkType || "other"}
-                onChange={(e) => {
-                  const updated = [...linkButtons];
-                  updated[i] = { ...updated[i], linkType: e.target.value as "telegram_group" | "onlyfans" | "other" };
-                  setLinkButtons(updated);
-                }}
-                className={`${inputClass} w-32 shrink-0`}
-              >
-                <option value="telegram_group">טלגרם</option>
-                <option value="onlyfans">OnlyFans</option>
-                <option value="other">אחר</option>
-              </select>
               <input
                 value={btn.label}
                 onChange={(e) => {
@@ -282,7 +269,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
         </div>
         <button
           type="button"
-          onClick={() => setLinkButtons([...linkButtons, { label: "", url: "", linkType: "other", order: linkButtons.length }])}
+          onClick={() => setLinkButtons([...linkButtons, { label: "", url: "", order: linkButtons.length }])}
           className="bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border rounded-lg px-4 py-2 text-sm transition cursor-pointer"
         >
           + הוסף כפתור
