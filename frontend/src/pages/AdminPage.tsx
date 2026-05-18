@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
 import AdminProfileForm from "../components/AdminProfileForm";
@@ -107,6 +108,7 @@ function SortableProfileRow({
 }
 
 export default function AdminPage() {
+  const navigate = useNavigate();
   const [authenticated, setAuthenticated] = useState(!!localStorage.getItem("admin_token"));
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -257,6 +259,12 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-white">פאנל ניהול</h1>
           <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/admin/analytics")}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition border-0 cursor-pointer"
+            >
+              אנליטיקס
+            </button>
             <button
               onClick={() => setCreating(true)}
               className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition border-0 cursor-pointer"

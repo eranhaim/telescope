@@ -142,6 +142,15 @@ export const api = {
     return request(`/admin/users/hourly?days=${days}`, { headers: authHeaders() });
   },
 
+  adminGetAnalytics(): Promise<{
+    profileViewsHourly: { profileId: string; time: string; count: number }[];
+    profileViewsDaily: { profileId: string; time: string; count: number }[];
+    mediaClicksDaily: { profileId: string; time: string; count: number }[];
+    profileNames: Record<string, string>;
+  }> {
+    return request("/admin/analytics", { headers: authHeaders() });
+  },
+
   async adminExportUsers(): Promise<void> {
     const res = await fetch(`${BASE}/admin/users/export`, { headers: authHeaders() });
     if (!res.ok) throw new Error("Export failed");

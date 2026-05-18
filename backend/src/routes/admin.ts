@@ -166,6 +166,94 @@ router.get("/stats", adminAuth, async (_req: Request, res: Response) => {
   }
 });
 
+router.get("/analytics", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [profileViewsHourly, profileViewsDaily, mediaClicksDaily, profiles] = await Promise.all([
+      TelegramUser.aggregate([
+        { $unwind: "$activity" },
+        { $match: { "activity.type": "profile_click", "activity.at": { $gte: sevenDaysAgo } } },
+        {
+          $group: {
+            _id: {
+              profileId: "$activity.profileId",
+              year: { $year: "$activity.at" },
+              month: { $month: "$activity.at" },
+              day: { $dayOfMonth: "$activity.at" },
+              hour: { $hour: "$activity.at" },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const, "_id.hour": 1 as const } },
+      ]),
+      TelegramUser.aggregate([
+        { $unwind: "$activity" },
+        { $match: { "activity.type": "profile_click", "activity.at": { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: {
+              profileId: "$activity.profileId",
+              year: { $year: "$activity.at" },
+              month: { $month: "$activity.at" },
+              day: { $dayOfMonth: "$activity.at" },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const } },
+      ]),
+      TelegramUser.aggregate([
+        { $unwind: "$activity" },
+        { $match: { "activity.type": "media_click", "activity.at": { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: {
+              profileId: "$activity.profileId",
+              year: { $year: "$activity.at" },
+              month: { $month: "$activity.at" },
+              day: { $dayOfMonth: "$activity.at" },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.year": 1 as const, "_id.month": 1 as const, "_id.day": 1 as const } },
+      ]),
+      Profile.find({}, { name: 1 }).lean(),
+    ]);
+
+    const profileNames: Record<string, string> = {};
+    for (const p of profiles) {
+      profileNames[p._id.toString()] = p.name;
+    }
+
+    const formatHourly = (r: { _id: { profileId: string; year: number; month: number; day: number; hour: number }; count: number }) => ({
+      profileId: r._id.profileId,
+      time: new Date(r._id.year, r._id.month - 1, r._id.day, r._id.hour).toISOString(),
+      count: r.count,
+    });
+
+    const formatDaily = (r: { _id: { profileId: string; year: number; month: number; day: number }; count: number }) => ({
+      profileId: r._id.profileId,
+      time: new Date(r._id.year, r._id.month - 1, r._id.day).toISOString(),
+      count: r.count,
+    });
+
+    res.json({
+      profileViewsHourly: profileViewsHourly.map(formatHourly),
+      profileViewsDaily: profileViewsDaily.map(formatDaily),
+      mediaClicksDaily: mediaClicksDaily.map(formatDaily),
+      profileNames,
+    });
+  } catch (err) {
+    console.error("GET /api/admin/analytics error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/users/hourly", adminAuth, async (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || 7;
