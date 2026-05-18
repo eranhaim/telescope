@@ -117,7 +117,7 @@ function MultiLineChart({
               stroke={COLORS[i % COLORS.length]}
               strokeWidth={2}
               dot={false}
-              name={id}
+              name={profileNames[id] || id}
             />
           ))}
         </LineChart>
