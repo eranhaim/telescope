@@ -35,6 +35,7 @@ export interface LinkButton {
   _id?: string;
   label: string;
   url: string;
+  linkType?: "telegram_group" | "onlyfans" | "other";
   order: number;
 }
 
@@ -146,7 +147,8 @@ export const api = {
     uniqueSiteUsers: { time: string; count: number }[];
     profileEntrances: { profileId: string; time: string; count: number }[];
     messageClicks: { profileId: string; time: string; count: number }[];
-    linkClicks: { profileId: string; time: string; count: number }[];
+    telegramGroupClicks: { profileId: string; time: string; count: number }[];
+    onlyfansClicks: { profileId: string; time: string; count: number }[];
     profileNames: Record<string, string>;
   }> {
     return request(`/admin/analytics?period=${period}`, { headers: authHeaders() });
@@ -194,13 +196,13 @@ export const api = {
     }).catch(() => {});
   },
 
-  trackButtonClick(profileId: string, buttonType: string, buttonLabel?: string): void {
+  trackButtonClick(profileId: string, buttonType: string, buttonLabel?: string, linkType?: string): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const source = window.Telegram?.WebApp ? "telegram" : "browser";
     fetch(`${BASE}/track/button-click`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId, buttonType, buttonLabel, source, ...(telegramUserId ? { telegramUserId } : {}) }),
+      body: JSON.stringify({ profileId, buttonType, buttonLabel, linkType, source, ...(telegramUserId ? { telegramUserId } : {}) }),
     }).catch(() => {});
   },
 };

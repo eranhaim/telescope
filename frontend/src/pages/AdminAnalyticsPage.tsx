@@ -115,7 +115,8 @@ export default function AdminAnalyticsPage() {
   const [uniqueSiteUsers, setUniqueSiteUsers] = useState<{ time: string; count: number }[]>([]);
   const [profileEntrances, setProfileEntrances] = useState<ProfileDataPoint[]>([]);
   const [messageClicks, setMessageClicks] = useState<ProfileDataPoint[]>([]);
-  const [linkClicks, setLinkClicks] = useState<ProfileDataPoint[]>([]);
+  const [telegramGroupClicks, setTelegramGroupClicks] = useState<ProfileDataPoint[]>([]);
+  const [onlyfansClicks, setOnlyfansClicks] = useState<ProfileDataPoint[]>([]);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
 
   const fetchData = useCallback((p: Period) => {
@@ -124,7 +125,8 @@ export default function AdminAnalyticsPage() {
       setUniqueSiteUsers(data.uniqueSiteUsers);
       setProfileEntrances(data.profileEntrances);
       setMessageClicks(data.messageClicks);
-      setLinkClicks(data.linkClicks);
+      setTelegramGroupClicks(data.telegramGroupClicks);
+      setOnlyfansClicks(data.onlyfansClicks);
       setProfileNames(data.profileNames);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
@@ -211,8 +213,15 @@ export default function AdminAnalyticsPage() {
             />
 
             <GroupedBarChart
-              title="לחיצות על קישורים"
-              raw={linkClicks}
+              title="לחיצות על קבוצת טלגרם"
+              raw={telegramGroupClicks}
+              profileNames={profileNames}
+              period={period}
+            />
+
+            <GroupedBarChart
+              title="לחיצות על OnlyFans"
+              raw={onlyfansClicks}
               profileNames={profileNames}
               period={period}
             />

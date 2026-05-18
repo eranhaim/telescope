@@ -139,7 +139,7 @@ router.post("/media/:profileId/:s3Key(*)", async (req: Request, res: Response) =
 
 router.post("/button-click", async (req: Request, res: Response) => {
   try {
-    const { profileId, buttonType, buttonLabel, telegramUserId } = req.body;
+    const { profileId, buttonType, buttonLabel, linkType, telegramUserId } = req.body;
     const source = getSource(req.body);
 
     await Event.create({
@@ -147,6 +147,7 @@ router.post("/button-click", async (req: Request, res: Response) => {
       profileId,
       buttonType,
       buttonLabel,
+      linkType,
       telegramUserId,
       source,
       at: new Date(),

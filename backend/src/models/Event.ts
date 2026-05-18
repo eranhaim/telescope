@@ -6,6 +6,7 @@ export interface IEvent extends Document {
   s3Key?: string;
   buttonType?: string;
   buttonLabel?: string;
+  linkType?: string;
   telegramUserId?: number;
   source: "telegram" | "browser";
   at: Date;
@@ -18,6 +19,7 @@ const EventSchema = new Schema<IEvent>(
     s3Key: { type: String },
     buttonType: { type: String },
     buttonLabel: { type: String },
+    linkType: { type: String },
     telegramUserId: { type: Number },
     source: { type: String, enum: ["telegram", "browser"], required: true },
     at: { type: Date, default: Date.now },

@@ -11,6 +11,7 @@ export interface IMediaItem {
 export interface ILinkButton {
   label: string;
   url: string;
+  linkType: "telegram_group" | "onlyfans" | "other";
   order: number;
 }
 
@@ -45,6 +46,7 @@ const LinkButtonSchema = new Schema<ILinkButton>(
   {
     label: { type: String, required: true },
     url: { type: String, required: true },
+    linkType: { type: String, enum: ["telegram_group", "onlyfans", "other"], default: "other" },
     order: { type: Number, default: 0 },
   },
   { _id: true }

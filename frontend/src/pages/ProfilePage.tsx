@@ -210,7 +210,7 @@ export default function ProfilePage() {
                                 .map((btn) => (
                                     <button
                                         key={btn._id || btn.url}
-                                        onClick={() => { api.trackButtonClick(profile._id, "link_button", btn.label); openSmartLink(btn.url); }}
+                                        onClick={() => { api.trackButtonClick(profile._id, "link_button", btn.label, btn.linkType); openSmartLink(btn.url); }}
                                         className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white px-5 py-2.5 rounded-full text-sm font-medium transition no-underline border-0 cursor-pointer"
                                     >
                                         <svg
