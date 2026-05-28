@@ -11,6 +11,7 @@ interface PopupData {
 export default function IdlePopup() {
   const [data, setData] = useState<PopupData | null>(null);
   const [visible, setVisible] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissed = useRef(false);
 
@@ -22,26 +23,31 @@ export default function IdlePopup() {
 
     api.getPopup().then((res) => {
       if (res.enabled && res.imageUrl) {
-        setData({
-          imageUrl: res.imageUrl!,
-          buttonLabel: res.buttonLabel || "",
-          buttonUrl: res.buttonUrl || "",
-          idleSeconds: res.idleSeconds || 5,
-        });
+        const img = new Image();
+        img.onload = () => {
+          setData({
+            imageUrl: res.imageUrl!,
+            buttonLabel: res.buttonLabel || "",
+            buttonUrl: res.buttonUrl || "",
+            idleSeconds: res.idleSeconds || 5,
+          });
+          setImageReady(true);
+        };
+        img.src = res.imageUrl;
       }
     }).catch(() => {});
   }, []);
 
   const resetTimer = useCallback(() => {
-    if (!data || dismissed.current) return;
+    if (!data || !imageReady || dismissed.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       if (!dismissed.current) setVisible(true);
     }, data.idleSeconds * 1000);
-  }, [data]);
+  }, [data, imageReady]);
 
   useEffect(() => {
-    if (!data || dismissed.current) return;
+    if (!data || !imageReady || dismissed.current) return;
 
     const events = ["touchstart", "scroll", "click", "mousemove", "keydown"];
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
@@ -51,7 +57,7 @@ export default function IdlePopup() {
       events.forEach((e) => window.removeEventListener(e, resetTimer));
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [data, resetTimer]);
+  }, [data, imageReady, resetTimer]);
 
   function handleClose() {
     setVisible(false);
