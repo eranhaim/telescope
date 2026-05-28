@@ -105,6 +105,7 @@ export default function IdlePopup() {
           <div className="p-4">
             <button
               onClick={handleClick}
+              dir="rtl"
               className="w-full bg-accent hover:bg-accent-hover text-white py-3 rounded-xl text-sm font-semibold transition border-0 cursor-pointer"
             >
               {data.buttonLabel}
