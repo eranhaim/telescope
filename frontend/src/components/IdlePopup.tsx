@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../api/client";
 
 interface PopupData {
@@ -14,9 +14,11 @@ export default function IdlePopup() {
   const [imageReady, setImageReady] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissed = useRef(false);
+  const lastActivity = useRef(Date.now());
 
   useEffect(() => {
-    if (sessionStorage.getItem("popup_dismissed")) {
+    const dismissedAt = sessionStorage.getItem("popup_dismissed");
+    if (dismissedAt && Date.now() - Number(dismissedAt) < 30 * 60 * 1000) {
       dismissed.current = true;
       return;
     }
@@ -38,31 +40,41 @@ export default function IdlePopup() {
     }).catch(() => {});
   }, []);
 
-  const resetTimer = useCallback(() => {
-    if (!data || !imageReady || dismissed.current) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      if (!dismissed.current) setVisible(true);
-    }, data.idleSeconds * 1000);
-  }, [data, imageReady]);
-
   useEffect(() => {
     if (!data || !imageReady || dismissed.current) return;
 
-    const events = ["touchstart", "scroll", "click", "mousemove", "keydown"];
-    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
-    resetTimer();
+    function onActivity() {
+      lastActivity.current = Date.now();
+    }
+
+    const events = ["touchstart", "pointerdown", "keydown"];
+    events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
+
+    lastActivity.current = Date.now();
+
+    const interval = setInterval(() => {
+      if (dismissed.current) {
+        clearInterval(interval);
+        return;
+      }
+      const idle = Date.now() - lastActivity.current;
+      if (idle >= data.idleSeconds * 1000) {
+        setVisible(true);
+        clearInterval(interval);
+      }
+    }, 500);
 
     return () => {
-      events.forEach((e) => window.removeEventListener(e, resetTimer));
+      events.forEach((e) => window.removeEventListener(e, onActivity));
+      clearInterval(interval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [data, imageReady, resetTimer]);
+  }, [data, imageReady]);
 
   function handleClose() {
     setVisible(false);
     dismissed.current = true;
-    sessionStorage.setItem("popup_dismissed", "1");
+    sessionStorage.setItem("popup_dismissed", String(Date.now()));
   }
 
   function handleClick() {
