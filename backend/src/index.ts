@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import profilesRouter from "./routes/profiles";
 import adminRouter from "./routes/admin";
 import trackRouter from "./routes/track";
+import popupRouter from "./routes/popup";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use("/api/profiles", profilesRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/track", trackRouter);
+app.use("/api/popup", popupRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });

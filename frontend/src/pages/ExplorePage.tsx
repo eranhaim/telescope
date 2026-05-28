@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
 import ProfileCard from "../components/ProfileCard";
+import IdlePopup from "../components/IdlePopup";
 import { useLocale } from "../i18n/useLocale";
 
 export default function ExplorePage() {
@@ -30,6 +31,7 @@ export default function ExplorePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-dark-bg">
+      <IdlePopup />
       <div className="relative overflow-hidden mb-2">
         <div className="absolute inset-0 bg-dark-bg" />
         <div className="relative flex justify-center" style={{ mask: "linear-gradient(to bottom, black 60%, transparent 100%)", WebkitMask: "linear-gradient(to bottom, black 60%, transparent 100%)" }}>

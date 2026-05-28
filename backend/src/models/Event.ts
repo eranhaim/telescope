@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IEvent extends Document {
-  type: "site_open" | "profile_click" | "media_click" | "button_click";
+  type: "site_open" | "profile_click" | "media_click" | "button_click" | "popup_click";
   profileId?: string;
   s3Key?: string;
   buttonType?: string;
@@ -14,7 +14,7 @@ export interface IEvent extends Document {
 
 const EventSchema = new Schema<IEvent>(
   {
-    type: { type: String, enum: ["site_open", "profile_click", "media_click", "button_click"], required: true },
+    type: { type: String, enum: ["site_open", "profile_click", "media_click", "button_click", "popup_click"], required: true },
     profileId: { type: String },
     s3Key: { type: String },
     buttonType: { type: String },

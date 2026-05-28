@@ -196,6 +196,57 @@ export const api = {
     }).catch(() => {});
   },
 
+  getPopup(): Promise<{ enabled: boolean; imageUrl?: string; buttonLabel?: string; buttonUrl?: string; idleSeconds?: number }> {
+    return request("/popup");
+  },
+
+  adminGetPopup(): Promise<{
+    photos: { key: string; url: string; thumbnailUrl?: string }[];
+    buttonLabel: string;
+    buttonUrl: string;
+    idleSeconds: number;
+    enabled: boolean;
+  }> {
+    return request("/popup/admin", { headers: authHeaders() });
+  },
+
+  adminUpdatePopup(data: { buttonLabel?: string; buttonUrl?: string; idleSeconds?: number; enabled?: boolean }): Promise<void> {
+    return request("/popup/admin", {
+      method: "PUT",
+      body: JSON.stringify(data),
+      headers: authHeaders(),
+    });
+  },
+
+  async adminUploadPopupPhoto(file: File): Promise<{ key: string; url: string; thumbnailUrl?: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${BASE}/popup/admin/upload`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Upload failed");
+    return res.json();
+  },
+
+  adminDeletePopupPhoto(key: string): Promise<void> {
+    return request(`/popup/admin/photo/${encodeURIComponent(key)}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  },
+
+  trackPopupClick(): void {
+    const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const source = window.Telegram?.WebApp ? "telegram" : "browser";
+    fetch(`${BASE}/track/popup-click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source, ...(telegramUserId ? { telegramUserId } : {}) }),
+    }).catch(() => {});
+  },
+
   trackButtonClick(profileId: string, buttonType: string, buttonLabel?: string, linkType?: string): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const source = window.Telegram?.WebApp ? "telegram" : "browser";

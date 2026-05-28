@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
@@ -120,6 +120,14 @@ export default function AdminPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [hourlyData, setHourlyData] = useState<{ time: string; label: string; count: number }[]>([]);
 
+  const [popupEnabled, setPopupEnabled] = useState(false);
+  const [popupIdleSeconds, setPopupIdleSeconds] = useState(5);
+  const [popupButtonLabel, setPopupButtonLabel] = useState("");
+  const [popupButtonUrl, setPopupButtonUrl] = useState("");
+  const [popupPhotos, setPopupPhotos] = useState<{ key: string; url: string; thumbnailUrl?: string }[]>([]);
+  const [popupSaving, setPopupSaving] = useState(false);
+  const popupFileRef = useRef<HTMLInputElement>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
@@ -145,14 +153,20 @@ export default function AdminPage() {
   async function loadProfiles() {
     setLoading(true);
     try {
-      const [data, stats, hourly] = await Promise.all([
+      const [data, stats, hourly, popupData] = await Promise.all([
         api.getProfiles(),
         api.adminGetStats(),
         api.adminGetHourlyUsers(7),
+        api.adminGetPopup(),
       ]);
       setProfiles(data);
       setSiteOpens(stats.siteOpens);
       setTotalUsers(hourly.totalUsers);
+      setPopupEnabled(popupData.enabled);
+      setPopupIdleSeconds(popupData.idleSeconds);
+      setPopupButtonLabel(popupData.buttonLabel);
+      setPopupButtonUrl(popupData.buttonUrl);
+      setPopupPhotos(popupData.photos);
 
       const formatted = hourly.hourly.map((h) => {
         const d = new Date(h.time);
@@ -354,6 +368,122 @@ export default function AdminPage() {
               אין נתונים עדיין
             </div>
           )}
+        </div>
+
+        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white">הגדרות פופאפ</h3>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-xs text-dark-text-secondary">{popupEnabled ? "פעיל" : "כבוי"}</span>
+              <div
+                className={`w-10 h-5 rounded-full relative transition ${popupEnabled ? "bg-accent" : "bg-dark-surface"}`}
+                onClick={() => setPopupEnabled(!popupEnabled)}
+              >
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${popupEnabled ? "left-5" : "left-0.5"}`} />
+              </div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-xs text-dark-text-secondary block mb-1">שניות חוסר פעילות</label>
+              <input
+                type="number"
+                min={1}
+                value={popupIdleSeconds}
+                onChange={(e) => setPopupIdleSeconds(Number(e.target.value))}
+                className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-dark-text-secondary block mb-1">טקסט כפתור</label>
+              <input
+                type="text"
+                value={popupButtonLabel}
+                onChange={(e) => setPopupButtonLabel(e.target.value)}
+                className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
+              />
+            </div>
+          </div>
+
+          <div className="mb-3">
+            <label className="text-xs text-dark-text-secondary block mb-1">קישור כפתור</label>
+            <input
+              type="url"
+              value={popupButtonUrl}
+              onChange={(e) => setPopupButtonUrl(e.target.value)}
+              className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
+              dir="ltr"
+            />
+          </div>
+
+          <div className="mb-3">
+            <label className="text-xs text-dark-text-secondary block mb-1">תמונות פופאפ</label>
+            <div className="flex gap-2 flex-wrap">
+              {popupPhotos.map((photo) => (
+                <div key={photo.key} className="relative w-20 h-20 rounded-lg overflow-hidden bg-dark-surface group">
+                  <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
+                  <button
+                    onClick={async () => {
+                      if (!confirm("למחוק תמונה?")) return;
+                      await api.adminDeletePopupPhoto(photo.key);
+                      setPopupPhotos((prev) => prev.filter((p) => p.key !== photo.key));
+                    }}
+                    className="absolute inset-0 bg-black/60 text-red-400 opacity-0 group-hover:opacity-100 transition flex items-center justify-center border-0 cursor-pointer text-lg"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => popupFileRef.current?.click()}
+                className="w-20 h-20 rounded-lg border-2 border-dashed border-dark-border text-dark-text-secondary hover:border-accent hover:text-accent flex items-center justify-center transition cursor-pointer bg-transparent text-2xl"
+              >
+                +
+              </button>
+              <input
+                ref={popupFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const result = await api.adminUploadPopupPhoto(file);
+                    setPopupPhotos((prev) => [...prev, result]);
+                  } catch (err) {
+                    console.error("Popup photo upload failed:", err);
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </div>
+          </div>
+
+          <button
+            disabled={popupSaving}
+            onClick={async () => {
+              setPopupSaving(true);
+              try {
+                await api.adminUpdatePopup({
+                  enabled: popupEnabled,
+                  idleSeconds: popupIdleSeconds,
+                  buttonLabel: popupButtonLabel,
+                  buttonUrl: popupButtonUrl,
+                });
+              } catch (err) {
+                console.error("Failed to save popup config:", err);
+              } finally {
+                setPopupSaving(false);
+              }
+            }}
+            className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition border-0 cursor-pointer"
+          >
+            {popupSaving ? "שומר..." : "שמור הגדרות פופאפ"}
+          </button>
         </div>
 
         {loading ? (

@@ -167,4 +167,30 @@ router.post("/button-click", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/popup-click", async (req: Request, res: Response) => {
+  try {
+    const telegramUserId = req.body?.telegramUserId as number | undefined;
+    const source = getSource(req.body);
+
+    await Event.create({
+      type: "popup_click",
+      telegramUserId,
+      source,
+      at: new Date(),
+    });
+
+    if (telegramUserId) {
+      await TelegramUser.findOneAndUpdate(
+        { telegramId: telegramUserId },
+        { $set: { lastSeen: new Date() } }
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("POST /api/track/popup-click error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 export default router;
