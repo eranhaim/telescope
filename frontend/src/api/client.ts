@@ -250,6 +250,10 @@ export const api = {
     return request("/admin/broadcast/status", { headers: authHeaders() });
   },
 
+  adminBroadcastHistory(): Promise<{ message: string; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]> {
+    return request("/admin/broadcast/history", { headers: authHeaders() });
+  },
+
   trackPopupClick(): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const source = window.Telegram?.WebApp ? "telegram" : "browser";

@@ -131,6 +131,7 @@ export default function AdminPage() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [broadcastHistory, setBroadcastHistory] = useState<{ message: string; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -157,11 +158,12 @@ export default function AdminPage() {
   async function loadProfiles() {
     setLoading(true);
     try {
-      const [data, stats, hourly, popupData] = await Promise.all([
+      const [data, stats, hourly, popupData, bcHistory] = await Promise.all([
         api.getProfiles(),
         api.adminGetStats(),
         api.adminGetHourlyUsers(7),
         api.adminGetPopup(),
+        api.adminBroadcastHistory(),
       ]);
       setProfiles(data);
       setSiteOpens(stats.siteOpens);
@@ -171,6 +173,7 @@ export default function AdminPage() {
       setPopupButtonLabel(popupData.buttonLabel);
       setPopupButtonUrl(popupData.buttonUrl);
       setPopupPhotos(popupData.photos);
+      setBroadcastHistory(bcHistory);
 
       const formatted = hourly.hourly.map((h) => {
         const d = new Date(h.time);
@@ -551,6 +554,29 @@ export default function AdminPage() {
               "שלח לכולם"
             )}
           </button>
+
+          {broadcastHistory.length > 0 && (
+            <div className="mt-3 border-t border-dark-border pt-3">
+              <h4 className="text-xs text-dark-text-secondary mb-2">היסטוריית שידורים</h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {broadcastHistory.map((b, i) => (
+                  <div key={i} className="bg-dark-surface rounded-lg px-3 py-2 text-xs">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-dark-text-secondary">
+                        {new Date(b.startedAt).toLocaleDateString("he-IL")} {new Date(b.startedAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <span>
+                        <span className="text-green-400">{b.sent}</span>
+                        {b.failed > 0 && <span className="text-red-400">/{b.failed}</span>}
+                        <span className="text-dark-text-secondary">/{b.total}</span>
+                      </span>
+                    </div>
+                    <p className="text-dark-text truncate" dir="rtl">{b.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {loading ? (

@@ -5,6 +5,7 @@ import Profile from "../models/Profile";
 import SiteStats from "../models/SiteStats";
 import TelegramUser from "../models/TelegramUser";
 import Event from "../models/Event";
+import Broadcast from "../models/Broadcast";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
@@ -404,6 +405,7 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
     const users = await TelegramUser.find({}, { telegramId: 1 }).lean();
     broadcastStatus = { sending: true, sent: 0, failed: 0, total: users.length };
 
+    const broadcast = await Broadcast.create({ message: message.trim(), total: users.length, startedAt: new Date() });
     res.json({ started: true, total: users.length });
 
     (async () => {
@@ -422,6 +424,10 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
         await new Promise((r) => setTimeout(r, 50));
       }
       console.log(`Broadcast complete: sent=${broadcastStatus.sent}, failed=${broadcastStatus.failed}, total=${broadcastStatus.total}`);
+      broadcast.sent = broadcastStatus.sent;
+      broadcast.failed = broadcastStatus.failed;
+      broadcast.completedAt = new Date();
+      await broadcast.save();
       broadcastStatus.sending = false;
     })();
   } catch (err) {
@@ -432,6 +438,16 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
 
 router.get("/broadcast/status", adminAuth, async (_req: Request, res: Response) => {
   res.json(broadcastStatus);
+});
+
+router.get("/broadcast/history", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const history = await Broadcast.find().sort({ startedAt: -1 }).limit(20).lean();
+    res.json(history);
+  } catch (err) {
+    console.error("GET /api/admin/broadcast/history error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 export default router;
