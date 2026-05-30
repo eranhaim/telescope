@@ -409,26 +409,36 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
     res.json({ started: true, total: users.length });
 
     (async () => {
-      for (const user of users) {
-        try {
-          const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: user.telegramId, text: message.trim() }),
-          });
-          if (resp.ok) broadcastStatus.sent++;
-          else broadcastStatus.failed++;
-        } catch {
-          broadcastStatus.failed++;
+      try {
+        for (let i = 0; i < users.length; i++) {
+          try {
+            const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: users[i].telegramId, text: message.trim() }),
+            });
+            if (resp.ok) broadcastStatus.sent++;
+            else broadcastStatus.failed++;
+          } catch {
+            broadcastStatus.failed++;
+          }
+          if ((i + 1) % 100 === 0) {
+            broadcast.sent = broadcastStatus.sent;
+            broadcast.failed = broadcastStatus.failed;
+            await broadcast.save().catch((e: unknown) => console.error("Broadcast progress save error:", e));
+          }
+          await new Promise((r) => setTimeout(r, 50));
         }
-        await new Promise((r) => setTimeout(r, 50));
+      } catch (err) {
+        console.error("Broadcast loop error:", err);
+      } finally {
+        console.log(`Broadcast complete: sent=${broadcastStatus.sent}, failed=${broadcastStatus.failed}, total=${broadcastStatus.total}`);
+        broadcast.sent = broadcastStatus.sent;
+        broadcast.failed = broadcastStatus.failed;
+        broadcast.completedAt = new Date();
+        await broadcast.save().catch((e: unknown) => console.error("Broadcast final save error:", e));
+        broadcastStatus.sending = false;
       }
-      console.log(`Broadcast complete: sent=${broadcastStatus.sent}, failed=${broadcastStatus.failed}, total=${broadcastStatus.total}`);
-      broadcast.sent = broadcastStatus.sent;
-      broadcast.failed = broadcastStatus.failed;
-      broadcast.completedAt = new Date();
-      await broadcast.save();
-      broadcastStatus.sending = false;
     })();
   } catch (err) {
     console.error("POST /api/admin/broadcast error:", err);
