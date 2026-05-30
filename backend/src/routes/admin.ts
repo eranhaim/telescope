@@ -417,8 +417,15 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ chat_id: users[i].telegramId, text: message.trim() }),
             });
-            if (resp.ok) broadcastStatus.sent++;
-            else broadcastStatus.failed++;
+            if (resp.ok) {
+              broadcastStatus.sent++;
+            } else {
+              broadcastStatus.failed++;
+              if (broadcastStatus.failed <= 10) {
+                const body = await resp.json().catch(() => ({}));
+                console.error(`Broadcast fail [${users[i].telegramId}]: ${resp.status} ${JSON.stringify(body)}`);
+              }
+            }
           } catch {
             broadcastStatus.failed++;
           }
