@@ -116,7 +116,8 @@ export default function IdlePopup() {
         <img
           src={data.imageUrl}
           alt=""
-          className="w-full aspect-[3/4] object-cover"
+          className="w-full aspect-[3/4] object-cover cursor-pointer"
+          onClick={handleClick}
         />
 
         {data.buttonLabel && data.buttonUrl && (

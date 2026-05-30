@@ -117,6 +117,7 @@ export default function AdminAnalyticsPage() {
   const [messageClicks, setMessageClicks] = useState<ProfileDataPoint[]>([]);
   const [telegramGroupClicks, setTelegramGroupClicks] = useState<ProfileDataPoint[]>([]);
   const [onlyfansClicks, setOnlyfansClicks] = useState<ProfileDataPoint[]>([]);
+  const [popupClicks, setPopupClicks] = useState<{ time: string; count: number }[]>([]);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async (p: Period) => {
@@ -127,6 +128,7 @@ export default function AdminAnalyticsPage() {
       setMessageClicks(data.messageClicks);
       setTelegramGroupClicks(data.telegramGroupClicks);
       setOnlyfansClicks(data.onlyfansClicks);
+      setPopupClicks(data.popupClicks);
       setProfileNames(data.profileNames);
     } catch (err) {
       console.error(err);
@@ -150,6 +152,13 @@ export default function AdminAnalyticsPage() {
       users: d.count,
     }));
   }, [uniqueSiteUsers, period]);
+
+  const popupChartData = useMemo(() => {
+    return popupClicks.map((d) => ({
+      label: formatTime(d.time, period),
+      clicks: d.count,
+    }));
+  }, [popupClicks, period]);
 
   const totalClicksData = useMemo(() => {
     const timeMap = new Map<string, { message: number; telegram: number; onlyfans: number }>();
@@ -245,6 +254,23 @@ export default function AdminAnalyticsPage() {
               profileNames={profileNames}
               period={period}
             />
+
+            <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold text-white mb-3">לחיצות על פופאפ</h3>
+              {popupChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={popupChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
+                    <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} />
+                    <Bar dataKey="clicks" name="לחיצות פופאפ" fill="#fb923c" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-dark-text-secondary text-sm">אין נתונים עדיין</div>
+              )}
+            </div>
 
             <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
               <h3 className="text-sm font-semibold text-white mb-3">סה"כ לחיצות לפי סוג</h3>

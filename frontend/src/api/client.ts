@@ -149,6 +149,7 @@ export const api = {
     messageClicks: { profileId: string; time: string; count: number }[];
     telegramGroupClicks: { profileId: string; time: string; count: number }[];
     onlyfansClicks: { profileId: string; time: string; count: number }[];
+    popupClicks: { time: string; count: number }[];
     profileNames: Record<string, string>;
   }> {
     return request(`/admin/analytics?period=${period}`, { headers: authHeaders() });

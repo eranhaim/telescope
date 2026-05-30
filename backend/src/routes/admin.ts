@@ -202,7 +202,7 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
       { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
     ];
 
-    const [uniqueSiteUsers, profileEntrances, messageClicks, telegramGroupClicks, onlyfansClicks, profiles] = await Promise.all([
+    const [uniqueSiteUsers, profileEntrances, messageClicks, telegramGroupClicks, onlyfansClicks, popupClicks, profiles] = await Promise.all([
       Event.aggregate([
         { $match: { type: "site_open", at: { $gte: since }, telegramUserId: { $ne: null } } },
         { $group: { _id: { telegramUserId: "$telegramUserId", ...dateTrunc } } },
@@ -213,6 +213,11 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
       Event.aggregate(uniqueProfileAgg("button_click", { buttonType: "message" })),
       Event.aggregate(uniqueProfileAgg("button_click", { buttonType: "link_button", linkType: "telegram_group" })),
       Event.aggregate(uniqueProfileAgg("button_click", { buttonType: "link_button", linkType: "onlyfans" })),
+      Event.aggregate([
+        { $match: { type: "popup_click", at: { $gte: since } } },
+        { $group: { _id: { ...dateTrunc }, count: { $sum: 1 } } },
+        { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
+      ]),
       Profile.find({}, { name: 1 }).lean(),
     ]);
 
@@ -257,6 +262,10 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
       onlyfansClicks: onlyfansClicks.map((r: { _id: Record<string, number | string>; count: number }) => ({
         profileId: r._id.profileId as string,
         time: timeFromBucket(r._id as Record<string, number>),
+        count: r.count,
+      })),
+      popupClicks: popupClicks.map((r: { _id: Record<string, number>; count: number }) => ({
+        time: timeFromBucket(r._id),
         count: r.count,
       })),
       profileNames,
