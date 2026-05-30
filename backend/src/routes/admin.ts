@@ -378,4 +378,47 @@ router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
   }
 });
 
+router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { message } = req.body;
+    if (!message || typeof message !== "string" || !message.trim()) {
+      res.status(400).json({ error: "Message is required" });
+      return;
+    }
+
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      res.status(500).json({ error: "Bot token not configured" });
+      return;
+    }
+
+    const users = await TelegramUser.find({}, { telegramId: 1 }).lean();
+    let sent = 0;
+    let failed = 0;
+
+    for (const user of users) {
+      try {
+        const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: user.telegramId, text: message.trim() }),
+        });
+        if (resp.ok) {
+          sent++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    res.json({ sent, failed, total: users.length });
+  } catch (err) {
+    console.error("POST /api/admin/broadcast error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 export default router;

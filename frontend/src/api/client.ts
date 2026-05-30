@@ -238,6 +238,14 @@ export const api = {
     });
   },
 
+  adminBroadcast(message: string): Promise<{ sent: number; failed: number; total: number }> {
+    return request("/admin/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ message }),
+      headers: authHeaders(),
+    });
+  },
+
   trackPopupClick(): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const source = window.Telegram?.WebApp ? "telegram" : "browser";

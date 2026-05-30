@@ -128,6 +128,10 @@ export default function AdminPage() {
   const [popupSaving, setPopupSaving] = useState(false);
   const popupFileRef = useRef<HTMLInputElement>(null);
 
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
@@ -483,6 +487,55 @@ export default function AdminPage() {
             className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition border-0 cursor-pointer"
           >
             {popupSaving ? "שומר..." : "שמור הגדרות פופאפ"}
+          </button>
+        </div>
+
+        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+          <h3 className="text-sm font-semibold text-white mb-3">שליחת הודעה לכולם</h3>
+          <textarea
+            value={broadcastMessage}
+            onChange={(e) => setBroadcastMessage(e.target.value)}
+            placeholder="כתוב הודעה לשליחה לכל המשתמשים..."
+            rows={4}
+            dir="rtl"
+            className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-accent/50 transition placeholder-dark-text-secondary resize-none mb-3"
+          />
+          {broadcastResult && (
+            <div className="bg-dark-surface border border-dark-border rounded-lg px-3 py-2 text-sm mb-3">
+              <span className="text-green-400">נשלח: {broadcastResult.sent}</span>
+              {broadcastResult.failed > 0 && (
+                <span className="text-red-400 mr-3"> | נכשל: {broadcastResult.failed}</span>
+              )}
+              <span className="text-dark-text-secondary mr-3"> | סה"כ: {broadcastResult.total}</span>
+            </div>
+          )}
+          <button
+            disabled={broadcastSending || !broadcastMessage.trim()}
+            onClick={async () => {
+              if (!confirm(`לשלוח את ההודעה ל-${totalUsers} משתמשים?`)) return;
+              setBroadcastSending(true);
+              setBroadcastResult(null);
+              try {
+                const result = await api.adminBroadcast(broadcastMessage);
+                setBroadcastResult(result);
+                setBroadcastMessage("");
+              } catch (err) {
+                console.error("Broadcast failed:", err);
+                alert("שליחת ההודעה נכשלה");
+              } finally {
+                setBroadcastSending(false);
+              }
+            }}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition border-0 cursor-pointer flex items-center justify-center gap-2"
+          >
+            {broadcastSending ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                שולח...
+              </>
+            ) : (
+              "שלח לכולם"
+            )}
           </button>
         </div>
 
