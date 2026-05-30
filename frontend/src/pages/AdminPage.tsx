@@ -507,6 +507,9 @@ export default function AdminPage() {
                 <span className="text-red-400 mr-3"> | נכשל: {broadcastResult.failed}</span>
               )}
               <span className="text-dark-text-secondary mr-3"> | סה"כ: {broadcastResult.total}</span>
+              {broadcastSending && (
+                <span className="text-yellow-400 mr-3"> | שולח... ({broadcastResult.sent + broadcastResult.failed}/{broadcastResult.total})</span>
+              )}
             </div>
           )}
           <button
@@ -516,13 +519,24 @@ export default function AdminPage() {
               setBroadcastSending(true);
               setBroadcastResult(null);
               try {
-                const result = await api.adminBroadcast(broadcastMessage);
-                setBroadcastResult(result);
+                await api.adminBroadcast(broadcastMessage);
                 setBroadcastMessage("");
+                const poll = setInterval(async () => {
+                  try {
+                    const status = await api.adminBroadcastStatus();
+                    setBroadcastResult(status);
+                    if (!status.sending) {
+                      clearInterval(poll);
+                      setBroadcastSending(false);
+                    }
+                  } catch {
+                    clearInterval(poll);
+                    setBroadcastSending(false);
+                  }
+                }, 2000);
               } catch (err) {
                 console.error("Broadcast failed:", err);
                 alert("שליחת ההודעה נכשלה");
-              } finally {
                 setBroadcastSending(false);
               }
             }}

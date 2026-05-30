@@ -378,11 +378,20 @@ router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
   }
 });
 
+let broadcastStatus: { sending: boolean; sent: number; failed: number; total: number } = {
+  sending: false, sent: 0, failed: 0, total: 0,
+};
+
 router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
   try {
     const { message } = req.body;
     if (!message || typeof message !== "string" || !message.trim()) {
       res.status(400).json({ error: "Message is required" });
+      return;
+    }
+
+    if (broadcastStatus.sending) {
+      res.status(409).json({ error: "Broadcast already in progress", ...broadcastStatus });
       return;
     }
 
@@ -393,32 +402,36 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
     }
 
     const users = await TelegramUser.find({}, { telegramId: 1 }).lean();
-    let sent = 0;
-    let failed = 0;
+    broadcastStatus = { sending: true, sent: 0, failed: 0, total: users.length };
 
-    for (const user of users) {
-      try {
-        const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: user.telegramId, text: message.trim() }),
-        });
-        if (resp.ok) {
-          sent++;
-        } else {
-          failed++;
+    res.json({ started: true, total: users.length });
+
+    (async () => {
+      for (const user of users) {
+        try {
+          const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: user.telegramId, text: message.trim() }),
+          });
+          if (resp.ok) broadcastStatus.sent++;
+          else broadcastStatus.failed++;
+        } catch {
+          broadcastStatus.failed++;
         }
-      } catch {
-        failed++;
+        await new Promise((r) => setTimeout(r, 50));
       }
-      await new Promise((r) => setTimeout(r, 50));
-    }
-
-    res.json({ sent, failed, total: users.length });
+      console.log(`Broadcast complete: sent=${broadcastStatus.sent}, failed=${broadcastStatus.failed}, total=${broadcastStatus.total}`);
+      broadcastStatus.sending = false;
+    })();
   } catch (err) {
     console.error("POST /api/admin/broadcast error:", err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+router.get("/broadcast/status", adminAuth, async (_req: Request, res: Response) => {
+  res.json(broadcastStatus);
 });
 
 export default router;

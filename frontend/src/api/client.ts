@@ -238,12 +238,16 @@ export const api = {
     });
   },
 
-  adminBroadcast(message: string): Promise<{ sent: number; failed: number; total: number }> {
+  adminBroadcast(message: string): Promise<{ started: boolean; total: number }> {
     return request("/admin/broadcast", {
       method: "POST",
       body: JSON.stringify({ message }),
       headers: authHeaders(),
     });
+  },
+
+  adminBroadcastStatus(): Promise<{ sending: boolean; sent: number; failed: number; total: number }> {
+    return request("/admin/broadcast/status", { headers: authHeaders() });
   },
 
   trackPopupClick(): void {
