@@ -250,8 +250,12 @@ export const api = {
     return request("/admin/broadcast/status", { headers: authHeaders() });
   },
 
-  adminBroadcastHistory(): Promise<{ message: string; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]> {
+  adminBroadcastHistory(): Promise<{ _id: string; message: string; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]> {
     return request("/admin/broadcast/history", { headers: authHeaders() });
+  },
+
+  adminDeleteBroadcast(id: string): Promise<{ ok: boolean }> {
+    return request(`/admin/broadcast/${id}`, { method: "DELETE", headers: authHeaders() });
   },
 
   trackPopupClick(): void {

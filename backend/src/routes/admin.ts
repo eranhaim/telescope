@@ -467,4 +467,14 @@ router.get("/broadcast/history", adminAuth, async (_req: Request, res: Response)
   }
 });
 
+router.delete("/broadcast/:id", adminAuth, async (req: Request, res: Response) => {
+  try {
+    await Broadcast.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/broadcast error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 export default router;
