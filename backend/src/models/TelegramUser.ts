@@ -10,6 +10,7 @@ export interface ITelegramUser extends Document {
   lastSeen: Date;
   startCount: number;
   appOpens: number;
+  source?: string;
 }
 
 const TelegramUserSchema = new Schema<ITelegramUser>({
@@ -22,6 +23,7 @@ const TelegramUserSchema = new Schema<ITelegramUser>({
   lastSeen: { type: Date, default: Date.now },
   startCount: { type: Number, default: 0 },
   appOpens: { type: Number, default: 0 },
+  source: { type: String },
 });
 
 export default mongoose.model<ITelegramUser>("TelegramUser", TelegramUserSchema);

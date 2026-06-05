@@ -28,7 +28,24 @@ const TelegramUser = mongoose.model(
     lastSeen: { type: Date, default: Date.now },
     startCount: { type: Number, default: 0 },
     appOpens: { type: Number, default: 0 },
+    source: { type: String },
     activity: { type: [Schema.Types.Mixed], default: [] },
+  })
+);
+
+const Event = mongoose.model(
+  "Event",
+  new Schema({
+    type: { type: String, required: true },
+    profileId: { type: String },
+    s3Key: { type: String },
+    buttonType: { type: String },
+    buttonLabel: { type: String },
+    linkType: { type: String },
+    referralSource: { type: String },
+    telegramUserId: { type: Number },
+    source: { type: String, required: true },
+    at: { type: Date, default: Date.now },
   })
 );
 
@@ -65,13 +82,17 @@ async function start() {
 
   const bot = new TelegramBot(TOKEN!, { polling: true });
 
-  bot.onText(/\/start/, async (msg) => {
+  bot.onText(/\/start(.*)/, async (msg, match) => {
     const from = msg.from;
     const locale = getLocale(from?.language_code);
     const strings = botMessages[locale] || botMessages.he;
+    const payload = match?.[1]?.trim() || "";
 
     if (from) {
       try {
+        const setOnInsert: Record<string, unknown> = { firstSeen: new Date() };
+        if (payload) setOnInsert.source = payload;
+
         await TelegramUser.findOneAndUpdate(
           { telegramId: from.id },
           {
@@ -83,10 +104,17 @@ async function start() {
               lastSeen: new Date(),
             },
             $inc: { startCount: 1 },
-            $setOnInsert: { firstSeen: new Date() },
+            $setOnInsert: setOnInsert,
           },
           { upsert: true }
         );
+        await Event.create({
+          type: "bot_start",
+          telegramUserId: from.id,
+          referralSource: payload || undefined,
+          source: "telegram",
+          at: new Date(),
+        });
       } catch (err) {
         console.error("Failed to upsert TelegramUser:", err);
       }

@@ -203,7 +203,7 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
       { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
     ];
 
-    const [uniqueSiteUsers, profileEntrances, messageClicks, telegramGroupClicks, onlyfansClicks, popupClicks, profiles] = await Promise.all([
+    const [uniqueSiteUsers, profileEntrances, messageClicks, telegramGroupClicks, onlyfansClicks, popupClicks, profiles, usersBySource] = await Promise.all([
       Event.aggregate([
         { $match: { type: "site_open", at: { $gte: since }, telegramUserId: { $ne: null } } },
         { $group: { _id: { telegramUserId: "$telegramUserId", ...dateTrunc } } },
@@ -220,6 +220,10 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
         { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
       ]),
       Profile.find({}, { name: 1 }).lean(),
+      TelegramUser.aggregate([
+        { $group: { _id: { $ifNull: ["$source", "direct"] }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
     ]);
 
     const profileNames: Record<string, string> = {};
@@ -270,6 +274,10 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
         count: r.count,
       })),
       profileNames,
+      usersBySource: usersBySource.map((r: { _id: string; count: number }) => ({
+        source: r._id,
+        count: r.count,
+      })),
     });
   } catch (err) {
     console.error("GET /api/admin/analytics error:", err);
@@ -330,6 +338,7 @@ router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
       { header: "Last Seen", key: "lastSeen", width: 22 },
       { header: "/start Count", key: "startCount", width: 14 },
       { header: "App Opens", key: "appOpens", width: 12 },
+      { header: "Source", key: "source", width: 15 },
       { header: "Profile Clicks", key: "profileClicks", width: 15 },
       { header: "Media Clicks", key: "mediaClicks", width: 14 },
     ];
@@ -363,6 +372,7 @@ router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
         lastSeen: user.lastSeen ? new Date(user.lastSeen).toISOString() : "",
         startCount: user.startCount || 0,
         appOpens: user.appOpens || 0,
+        source: (user as Record<string, unknown>).source || "direct",
         profileClicks: counts.profileClicks,
         mediaClicks: counts.mediaClicks,
       });

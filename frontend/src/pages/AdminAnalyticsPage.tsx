@@ -119,6 +119,7 @@ export default function AdminAnalyticsPage() {
   const [onlyfansClicks, setOnlyfansClicks] = useState<ProfileDataPoint[]>([]);
   const [popupClicks, setPopupClicks] = useState<{ time: string; count: number }[]>([]);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+  const [usersBySource, setUsersBySource] = useState<{ source: string; count: number }[]>([]);
 
   const fetchData = useCallback(async (p: Period) => {
     try {
@@ -130,6 +131,7 @@ export default function AdminAnalyticsPage() {
       setOnlyfansClicks(data.onlyfansClicks);
       setPopupClicks(data.popupClicks);
       setProfileNames(data.profileNames);
+      setUsersBySource(data.usersBySource);
     } catch (err) {
       console.error(err);
     } finally {
@@ -145,6 +147,20 @@ export default function AdminAnalyticsPage() {
     setLoading(true);
     fetchData(period);
   }, [navigate, fetchData, period]);
+
+  const sourceChartData = useMemo(() => {
+    const SOURCE_LABELS: Record<string, string> = {
+      direct: "ישיר",
+      google: "Google",
+      meta: "Meta",
+      instagram: "Instagram",
+      tiktok: "TikTok",
+    };
+    return usersBySource.map((d) => ({
+      source: SOURCE_LABELS[d.source] || d.source,
+      users: d.count,
+    }));
+  }, [usersBySource]);
 
   const siteChartData = useMemo(() => {
     return uniqueSiteUsers.map((d) => ({
@@ -220,6 +236,23 @@ export default function AdminAnalyticsPage() {
                     <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
                     <Tooltip {...tooltipStyle} />
                     <Bar dataKey="users" name="משתמשים" fill="#4ecdc4" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-dark-text-secondary text-sm">אין נתונים עדיין</div>
+              )}
+            </div>
+
+            <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold text-white mb-3">משתמשים לפי מקור הגעה</h3>
+              {sourceChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={sourceChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="source" tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={{ stroke: "#333" }} />
+                    <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} />
+                    <Bar dataKey="users" name="משתמשים" fill="#a78bfa" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

@@ -151,6 +151,7 @@ export const api = {
     onlyfansClicks: { profileId: string; time: string; count: number }[];
     popupClicks: { time: string; count: number }[];
     profileNames: Record<string, string>;
+    usersBySource: { source: string; count: number }[];
   }> {
     return request(`/admin/analytics?period=${period}`, { headers: authHeaders() });
   },
