@@ -6,6 +6,7 @@ import SiteStats from "../models/SiteStats";
 import TelegramUser from "../models/TelegramUser";
 import Event from "../models/Event";
 import Broadcast from "../models/Broadcast";
+import BroadcastMessage from "../models/BroadcastMessage";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
@@ -419,6 +420,7 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
     res.json({ started: true, total: users.length });
 
     (async () => {
+      const messageDocs: { broadcastId: unknown; chatId: number; messageId: number; sentAt: Date }[] = [];
       try {
         for (let i = 0; i < users.length; i++) {
           try {
@@ -429,6 +431,15 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
             });
             if (resp.ok) {
               broadcastStatus.sent++;
+              const data = await resp.json().catch(() => null);
+              if (data?.result?.message_id) {
+                messageDocs.push({
+                  broadcastId: broadcast._id,
+                  chatId: users[i].telegramId,
+                  messageId: data.result.message_id,
+                  sentAt: new Date(),
+                });
+              }
             } else {
               broadcastStatus.failed++;
               if (broadcastStatus.failed <= 10) {
@@ -443,12 +454,19 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
             broadcast.sent = broadcastStatus.sent;
             broadcast.failed = broadcastStatus.failed;
             await broadcast.save().catch((e: unknown) => console.error("Broadcast progress save error:", e));
+            if (messageDocs.length > 0) {
+              await BroadcastMessage.insertMany(messageDocs).catch((e: unknown) => console.error("BroadcastMessage batch save error:", e));
+              messageDocs.length = 0;
+            }
           }
           await new Promise((r) => setTimeout(r, 50));
         }
       } catch (err) {
         console.error("Broadcast loop error:", err);
       } finally {
+        if (messageDocs.length > 0) {
+          await BroadcastMessage.insertMany(messageDocs).catch((e: unknown) => console.error("BroadcastMessage final save error:", e));
+        }
         console.log(`Broadcast complete: sent=${broadcastStatus.sent}, failed=${broadcastStatus.failed}, total=${broadcastStatus.total}`);
         broadcast.sent = broadcastStatus.sent;
         broadcast.failed = broadcastStatus.failed;
