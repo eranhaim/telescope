@@ -431,7 +431,7 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
             });
             if (resp.ok) {
               broadcastStatus.sent++;
-              const data = await resp.json().catch(() => null);
+              const data = await resp.json().catch(() => null) as { result?: { message_id?: number } } | null;
               if (data?.result?.message_id) {
                 messageDocs.push({
                   broadcastId: broadcast._id,
