@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telescope - איך זה עובד</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f0f1a; color: #e0e0e0; line-height: 1.7; }
+  h1 { text-align: center; padding: 40px 20px 10px; font-size: 2.2em; color: #a78bfa; }
+  .subtitle { text-align: center; color: #888; margin-bottom: 40px; font-size: 1.1em; }
+  .section { max-width: 960px; margin: 30px auto; padding: 0 20px; }
+  h2 { font-size: 1.5em; color: #818cf8; margin-bottom: 16px; border-bottom: 2px solid #1e1e3f; padding-bottom: 8px; }
+  h3 { font-size: 1.1em; color: #c4b5fd; margin: 16px 0 8px; }
+
+  /* BOXES */
+  .box { border-radius: 12px; padding: 18px 22px; margin-bottom: 16px; }
+  .box-blue  { background: #1e2a4a; border: 1px solid #3b82f6; }
+  .box-green { background: #1a2e22; border: 1px solid #22c55e; }
+  .box-purple{ background: #241a3a; border: 1px solid #a855f7; }
+  .box-orange{ background: #2e1f0a; border: 1px solid #f97316; }
+  .box-red   { background: #2e1010; border: 1px solid #ef4444; }
+  .box-gray  { background: #1a1a2e; border: 1px solid #4b5563; }
+
+  /* FLOW */
+  .flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .flow-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .node {
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 0.95em;
+    font-weight: 600;
+    text-align: center;
+    min-width: 140px;
+  }
+  .node-blue   { background: #1e3a8a; border: 2px solid #60a5fa; color: #bfdbfe; }
+  .node-green  { background: #14532d; border: 2px solid #4ade80; color: #bbf7d0; }
+  .node-purple { background: #3b0764; border: 2px solid #c084fc; color: #e9d5ff; }
+  .node-orange { background: #7c2d12; border: 2px solid #fb923c; color: #fed7aa; }
+  .node-yellow { background: #713f12; border: 2px solid #fbbf24; color: #fef3c7; }
+  .node-red    { background: #7f1d1d; border: 2px solid #f87171; color: #fee2e2; }
+  .node-gray   { background: #1f2937; border: 2px solid #6b7280; color: #d1d5db; }
+
+  .arrow { font-size: 1.8em; color: #6b7280; line-height: 1; margin: 4px 0; }
+  .arrow-label { font-size: 0.75em; color: #9ca3af; text-align: center; margin-top: -2px; margin-bottom: 2px; }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media(max-width:700px) { .grid-2,.grid-3 { grid-template-columns: 1fr; } }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+  th { background: #1e1e3f; color: #818cf8; padding: 10px; text-align: right; border-bottom: 2px solid #312e81; }
+  td { padding: 9px 10px; border-bottom: 1px solid #1e1e3f; vertical-align: top; }
+  tr:hover td { background: #161625; }
+
+  /* CODE */
+  code { background: #1e1e3f; color: #a78bfa; padding: 2px 7px; border-radius: 4px; font-size: 0.88em; direction: ltr; display: inline-block; }
+
+  /* BADGE */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 0.78em; font-weight: 700; margin-right: 4px; }
+  .badge-blue   { background: #1e3a8a; color: #93c5fd; }
+  .badge-green  { background: #14532d; color: #86efac; }
+  .badge-purple { background: #3b0764; color: #d8b4fe; }
+  .badge-orange { background: #7c2d12; color: #fdba74; }
+
+  /* SCHEMA */
+  .schema { background: #0d0d1a; border: 1px solid #312e81; border-radius: 8px; padding: 14px 18px; font-size: 0.88em; direction: ltr; overflow-x: auto; }
+  .schema .field { color: #93c5fd; }
+  .schema .type  { color: #a78bfa; }
+  .schema .comment { color: #4b5563; }
+
+  .divider { border: none; border-top: 1px solid #1e1e3f; margin: 40px 0; }
+
+  .highlight { background: #1e1e3f; border-right: 4px solid #818cf8; padding: 12px 16px; border-radius: 6px; margin: 12px 0; font-size: 0.95em; }
+</style>
+</head>
+<body>
+
+<h1>🔭 Telescope — איך זה עובד</h1>
+<p class="subtitle">מדריך ויזואלי מלא — מ-A עד Z</p>
+
+<!-- ===== BIG PICTURE ===== -->
+<div class="section">
+  <h2>🗺️ התמונה הגדולה — 3 חלקים</h2>
+  <div class="grid-3">
+    <div class="box box-purple">
+      <h3>🤖 Bot (טלגרם)</h3>
+      <p>מקבל משתמשים חדשים, שולח להם הודעה עם כפתור לפתיחת האפליקציה, שולח broadcast לכולם.</p>
+      <br><code>bot/index.ts</code>
+    </div>
+    <div class="box box-blue">
+      <h3>⚙️ Backend (שרת)</h3>
+      <p>Express + Node.js. מנהל את כל הלוגיקה — פרופילים, מדיה, אנליטיקה, אדמין, S3.</p>
+      <br><code>backend/src/</code>
+    </div>
+    <div class="box box-green">
+      <h3>🖥️ Frontend (ממשק)</h3>
+      <p>React שרץ בתוך טלגרם כ-Mini App. זה מה שהמשתמש רואה.</p>
+      <br><code>frontend/src/</code>
+    </div>
+  </div>
+
+  <div class="flow" style="margin-top:24px;">
+    <div class="flow-row">
+      <div class="node node-purple">👤 משתמש טלגרם</div>
+      <div class="arrow">→</div>
+      <div class="node node-purple">🤖 Bot</div>
+      <div class="arrow">→</div>
+      <div class="node node-blue">⚙️ Backend</div>
+      <div class="arrow">→</div>
+      <div class="node node-gray">🍃 MongoDB</div>
+    </div>
+    <div style="margin-top:8px; color:#6b7280; font-size:0.85em; text-align:center">המשתמש לוחץ "פתח" → Frontend נטען בתוך טלגרם → Frontend מתקשר עם Backend</div>
+    <div class="flow-row" style="margin-top:8px;">
+      <div class="node node-green">🖥️ Frontend</div>
+      <div class="arrow">↕</div>
+      <div class="node node-blue">⚙️ Backend</div>
+      <div class="arrow">↔</div>
+      <div class="node node-orange">☁️ AWS S3</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== USER JOURNEY ===== -->
+<div class="section">
+  <h2>🚶 מסע המשתמש — מהתחלה עד הסוף</h2>
+
+  <div class="flow">
+    <div class="node node-purple">1. המשתמש שולח /start לבוט</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">הבוט מזהה referral source מה-payload</div>
+    <div class="node node-blue">2. Backend שומר TelegramUser ב-MongoDB</div>
+    <div class="arrow">↓</div>
+    <div class="node node-purple">3. הבוט שולח הודעה + כפתור "פתח Telescope"</div>
+    <div class="arrow">↓</div>
+    <div class="node node-green">4. Frontend נפתח בתוך טלגרם (Mini App)</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">Frontend קורא לـ POST /api/track/site-open</div>
+    <div class="node node-blue">5. Backend רושם site_open Event</div>
+    <div class="arrow">↓</div>
+    <div class="node node-green">6. משתמש רואה גריד של פרופילים (ExplorePage)</div>
+    <div class="arrow">↓</div>
+    <div class="node node-green">7. לוחץ על פרופיל → ProfilePage</div>
+    <div class="arrow">↓</div>
+    <div class="flow-row">
+      <div class="node node-orange">לוחץ "Message" → פותח טלגרם</div>
+      <div class="node node-orange">לוחץ מדיה → Media Viewer</div>
+      <div class="node node-orange">לוחץ OnlyFans/קבוצה → פותח קישור</div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">כל לחיצה שולחת track event לבקאנד</div>
+    <div class="node node-blue">8. Backend רושם Events לאנליטיקה</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== MONGODB MODELS ===== -->
+<div class="section">
+  <h2>🍃 MongoDB — מה נשמר במסד הנתונים</h2>
+  <p style="color:#888; margin-bottom:16px;">7 collections שונות. כל אחת שומרת סוג אחר של מידע.</p>
+
+  <div class="grid-2">
+
+    <div class="box box-blue">
+      <h3>📋 Profile</h3>
+      <p style="color:#888; font-size:0.88em; margin-bottom:10px;">כל פרופיל של בחורה באתר</p>
+      <div class="schema">
+        <span class="field">name</span>: <span class="type">String</span><br>
+        <span class="field">handle</span>: <span class="type">String</span> <span class="comment">// @username להצגה</span><br>
+        <span class="field">telegramLink</span>: <span class="type">String</span><br>
+        <span class="field">profileImage</span>: <span class="type">String</span> <span class="comment">// S3 key</span><br>
+        <span class="field">media</span>: <span class="type">Array</span> [{<br>
+        &nbsp;&nbsp;<span class="field">type</span>: <span class="type">"image"|"video"</span><br>
+        &nbsp;&nbsp;<span class="field">s3Key</span>: <span class="type">String</span><br>
+        &nbsp;&nbsp;<span class="field">clicks</span>: <span class="type">Number</span><br>
+        }]<br>
+        <span class="field">linkButtons</span>: <span class="type">Array</span> [{<br>
+        &nbsp;&nbsp;<span class="field">label</span>, <span class="field">url</span>, <span class="field">linkType</span><br>
+        }]<br>
+        <span class="field">tags</span>: <span class="type">[String]</span><br>
+        <span class="field">clicks</span>: <span class="type">Number</span> <span class="comment">// כמה נכנסו</span><br>
+        <span class="field">isVerified</span>: <span class="type">Boolean</span>
+      </div>
+    </div>
+
+    <div class="box box-green">
+      <h3>👤 TelegramUser</h3>
+      <p style="color:#888; font-size:0.88em; margin-bottom:10px;">כל משתמש שהתחיל את הבוט</p>
+      <div class="schema">
+        <span class="field">telegramId</span>: <span class="type">Number</span> <span class="comment">// unique</span><br>
+        <span class="field">firstName</span>: <span class="type">String</span><br>
+        <span class="field">username</span>: <span class="type">String</span><br>
+        <span class="field">languageCode</span>: <span class="type">String</span> <span class="comment">// "he"/"en"/"ar"</span><br>
+        <span class="field">firstSeen</span>: <span class="type">Date</span><br>
+        <span class="field">lastSeen</span>: <span class="type">Date</span><br>
+        <span class="field">startCount</span>: <span class="type">Number</span><br>
+        <span class="field">appOpens</span>: <span class="type">Number</span><br>
+        <span class="field">source</span>: <span class="type">String</span> <span class="comment">// מאיפה הגיע</span>
+      </div>
+    </div>
+
+    <div class="box box-purple">
+      <h3>📊 Event</h3>
+      <p style="color:#888; font-size:0.88em; margin-bottom:10px;">כל פעולה של משתמש — לאנליטיקה</p>
+      <div class="schema">
+        <span class="field">type</span>: <span class="type">String</span> <span class="comment">// site_open/profile_click/</span><br>
+        <span class="comment">// media_click/button_click/popup_click</span><br>
+        <span class="field">profileId</span>: <span class="type">ObjectId</span><br>
+        <span class="field">buttonType</span>: <span class="type">String</span><br>
+        <span class="field">linkType</span>: <span class="type">String</span> <span class="comment">// onlyfans/telegram_group</span><br>
+        <span class="field">telegramUserId</span>: <span class="type">Number</span><br>
+        <span class="field">source</span>: <span class="type">"telegram"|"browser"</span><br>
+        <span class="field">at</span>: <span class="type">Date</span> <span class="comment">// מתי קרה</span>
+      </div>
+    </div>
+
+    <div class="box box-orange">
+      <h3>📢 Broadcast + BroadcastMessage</h3>
+      <p style="color:#888; font-size:0.88em; margin-bottom:10px;">מעקב אחרי שליחת הודעות המוניות</p>
+      <div class="schema">
+        <span class="comment">// Broadcast — המשלוח עצמו</span><br>
+        <span class="field">message</span>: <span class="type">String</span><br>
+        <span class="field">sent</span>/<span class="field">failed</span>/<span class="field">total</span>: <span class="type">Number</span><br>
+        <span class="field">startedAt</span>/<span class="field">completedAt</span>: <span class="type">Date</span><br>
+        <br>
+        <span class="comment">// BroadcastMessage — כל הודעה בנפרד</span><br>
+        <span class="field">chatId</span>: <span class="type">Number</span><br>
+        <span class="field">messageId</span>: <span class="type">Number</span> <span class="comment">// למחיקה אחרי 24h</span><br>
+        <span class="field">sentAt</span>: <span class="type">Date</span> <span class="comment">// TTL index</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="grid-2" style="margin-top:0">
+    <div class="box box-gray">
+      <h3>📈 SiteStats</h3>
+      <div class="schema">
+        <span class="field">key</span>: <span class="type">"site_opens"</span><br>
+        <span class="field">count</span>: <span class="type">Number</span> <span class="comment">// מונה כללי</span>
+      </div>
+    </div>
+    <div class="box box-gray">
+      <h3>🎯 PopupConfig</h3>
+      <div class="schema">
+        <span class="field">photos</span>: <span class="type">[String]</span> <span class="comment">// S3 keys</span><br>
+        <span class="field">buttonLabel</span>/<span class="field">buttonUrl</span>: <span class="type">String</span><br>
+        <span class="field">idleSeconds</span>: <span class="type">Number</span><br>
+        <span class="field">enabled</span>: <span class="type">Boolean</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== API ROUTES ===== -->
+<div class="section">
+  <h2>🔌 API Routes — כל הנקודות קצה</h2>
+
+  <h3 style="margin-bottom:10px;"><span class="badge badge-green">ציבורי</span> כל אחד יכול לקרוא</h3>
+  <table>
+    <tr><th>Method</th><th>URL</th><th>מה עושה</th></tr>
+    <tr><td><code>GET</code></td><td><code>/api/profiles</code></td><td>מחזיר רשימת פרופילים (עם פילטר לפי tag/חיפוש)</td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/profiles/:id</code></td><td>מחזיר פרופיל בודד עם URLs חתומים מ-S3</td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/popup</code></td><td>מחזיר popup אקראי (תמונה, כפתור, זמן)</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/track/site-open</code></td><td>רושם כניסה לאפליקציה</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/track/profile/:id</code></td><td>רושם צפייה בפרופיל</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/track/media/:profileId/:key</code></td><td>רושם צפייה במדיה</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/track/button-click</code></td><td>רושם לחיצה על כפתור</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/track/popup-click</code></td><td>רושם לחיצה על popup</td></tr>
+  </table>
+
+  <h3 style="margin: 20px 0 10px;"><span class="badge badge-orange">מוגן JWT</span> רק אדמין</h3>
+  <table>
+    <tr><th>Method</th><th>URL</th><th>מה עושה</th></tr>
+    <tr><td><code>POST</code></td><td><code>/api/admin/login</code></td><td>כניסת אדמין — מחזיר JWT token</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/admin/profiles</code></td><td>יצירת פרופיל חדש</td></tr>
+    <tr><td><code>PUT</code></td><td><code>/api/admin/profiles/:id</code></td><td>עדכון פרופיל</td></tr>
+    <tr><td><code>PUT</code></td><td><code>/api/admin/profiles/reorder</code></td><td>שינוי סדר של כל הפרופילים</td></tr>
+    <tr><td><code>DELETE</code></td><td><code>/api/admin/profiles/:id</code></td><td>מחיקת פרופיל + כל המדיה שלו מ-S3</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/admin/upload</code></td><td>העלאת קובץ ל-S3 + יצירת thumbnail</td></tr>
+    <tr><td><code>DELETE</code></td><td><code>/api/admin/media/:key</code></td><td>מחיקת מדיה ספציפית</td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/admin/analytics</code></td><td>נתוני אנליטיקה (daily/weekly/monthly)</td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/admin/users/export</code></td><td>הורדת Excel של כל המשתמשים</td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/admin/broadcast</code></td><td>שליחת הודעה לכל המשתמשים</td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/admin/broadcast/status</code></td><td>בדיקת התקדמות ה-broadcast</td></tr>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ===== MEDIA FLOW ===== -->
+<div class="section">
+  <h2>☁️ איך מדיה עובדת — S3</h2>
+
+  <div class="flow">
+    <div class="node node-green">אדמין מעלה תמונה/וידאו</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">POST /api/admin/upload</div>
+    <div class="arrow">↓</div>
+    <div class="flow-row">
+      <div class="flow" style="gap:4px">
+        <div class="node node-yellow">תמונה?</div>
+        <div class="arrow">↓</div>
+        <div class="node node-gray">Sharp → Thumbnail קטן</div>
+      </div>
+      <div class="flow" style="gap:4px">
+        <div class="node node-yellow">וידאו?</div>
+        <div class="arrow">↓</div>
+        <div class="node node-gray">FFmpeg → Frame ראשון</div>
+      </div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="node node-orange">שני הקבצים עולים ל-AWS S3</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">MongoDB שומר רק את ה-key (לא URL)</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">כשמשתמש מבקש פרופיל...</div>
+    <div class="node node-blue">Backend יוצר Presigned URL — תוקף 23 שעות</div>
+    <div class="arrow">↓</div>
+    <div class="node node-green">Frontend מקבל URL זמני לתמונה/וידאו</div>
+  </div>
+
+  <div class="highlight" style="margin-top:20px;">
+    💡 <strong>למה Presigned URL?</strong> S3 לא חושף קבצים ישירות. הבקאנד יוצר קישור זמני שמאפשר גישה לקובץ לזמן מוגבל — כך הקבצים מוגנים ורק מי שמקבל URL יכול לגשת.
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== BROADCAST FLOW ===== -->
+<div class="section">
+  <h2>📢 איך Broadcast עובד</h2>
+
+  <div class="flow">
+    <div class="node node-purple">אדמין כותב הודעה ולוחץ "שלח לכולם"</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">Backend מושך את כל TelegramUser IDs מ-MongoDB</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">יוצר Broadcast document עם sent=0, total=N</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">תהליך async — רץ ברקע, 50ms המתנה בין כל הודעה</div>
+    <div class="node node-purple">שולח הודעה לכל משתמש דרך Telegram Bot API</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">שומר BroadcastMessage לכל הודעה (לצורך מחיקה)</div>
+    <div class="arrow">↓</div>
+    <div class="flow-row">
+      <div class="node node-green">Frontend polling כל 2 שניות</div>
+      <div class="node node-blue">GET /api/admin/broadcast/status</div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">אחרי 24 שעות</div>
+    <div class="node node-red">Backend מוחק את ההודעות מטלגרם אוטומטית (TTL)</div>
+  </div>
+
+  <div class="box box-red" style="margin-top:16px;">
+    <h3>⚠️ נקודת תשומת לב</h3>
+    <p>סטטוס ה-broadcast נשמר <strong>בזיכרון בלבד</strong> (לא ב-MongoDB). אם השרת יתרסק באמצע שליחה — הסטטוס נאבד ולא ניתן להמשיך ממקום שנפסק.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== I18N ===== -->
+<div class="section">
+  <h2>🌍 תמיכה בשפות (i18n)</h2>
+
+  <div class="flow">
+    <div class="node node-green">Frontend עולה</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">useLocale hook בודק לפי סדר עדיפות</div>
+    <div class="flow-row">
+      <div class="flow" style="gap:4px">
+        <div class="node node-purple">1. שפת טלגרם</div>
+        <div class="arrow-label">initDataUnsafe.user.language_code</div>
+      </div>
+      <div class="flow" style="gap:4px">
+        <div class="node node-gray">2. שפת דפדפן</div>
+        <div class="arrow-label">navigator.language</div>
+      </div>
+      <div class="flow" style="gap:4px">
+        <div class="node node-gray">3. ברירת מחדל</div>
+        <div class="arrow-label">עברית</div>
+      </div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="flow-row">
+      <div class="node node-blue">🇮🇱 עברית — RTL</div>
+      <div class="node node-blue">🇺🇸 אנגלית — LTR</div>
+      <div class="node node-blue">🇸🇦 ערבית — RTL</div>
+    </div>
+  </div>
+
+  <div class="highlight" style="margin-top:16px;">
+    💡 RTL (Right-to-Left) אומר שכל הממשק מתהפך — טקסט, כפתורים, layout. עברית וערבית כותבים מימין לשמאל, אנגלית משמאל לימין.
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== LINK TYPE ===== -->
+<div class="section">
+  <h2>🔗 זיהוי אוטומטי של סוג קישור</h2>
+  <p style="color:#888; margin-bottom:14px;">כשאדמין מוסיף כפתור קישור לפרופיל, הבקאנד מזהה אוטומטית את הסוג:</p>
+
+  <div class="flow">
+    <div class="node node-orange">אדמין מכניס URL לכפתור</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">inferLinkType() בודק את ה-URL</div>
+    <div class="flow-row">
+      <div class="flow" style="gap:4px">
+        <div class="node node-purple">t.me / telegram.me / @</div>
+        <div class="arrow">↓</div>
+        <div class="node node-gray">telegram_group</div>
+      </div>
+      <div class="flow" style="gap:4px">
+        <div class="node node-orange">onlyfans.com</div>
+        <div class="arrow">↓</div>
+        <div class="node node-gray">onlyfans</div>
+      </div>
+      <div class="flow" style="gap:4px">
+        <div class="node node-gray">כל שאר</div>
+        <div class="arrow">↓</div>
+        <div class="node node-gray">other</div>
+      </div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">normalizeTelegramLink() — קישורי טלגרם מתוקנים אוטומטית</div>
+    <div class="node node-blue">https://t.me/username (פורמט אחיד)</div>
+  </div>
+
+  <div class="highlight" style="margin-top:16px;">
+    💡 זה חשוב לאנליטיקה — כך אפשר לדעת כמה לחיצות קיבל OnlyFans לעומת קבוצות טלגרם.
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== S3 CACHE ===== -->
+<div class="section">
+  <h2>☁️ S3 URL Caching — איך חוסכים קריאות ל-AWS</h2>
+
+  <div class="flow">
+    <div class="node node-green">משתמש מבקש פרופיל</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">Backend צריך URL לכל תמונה/וידאו</div>
+    <div class="arrow">↓</div>
+    <div class="flow-row">
+      <div class="flow" style="gap:4px">
+        <div class="node node-green">URL קיים בcache?</div>
+        <div class="arrow">↓</div>
+        <div class="node node-green">מחזיר מהזיכרון מיד</div>
+      </div>
+      <div class="flow" style="gap:4px">
+        <div class="node node-yellow">לא קיים / פג תוקף?</div>
+        <div class="arrow">↓</div>
+        <div class="node node-orange">פונה ל-AWS S3</div>
+        <div class="arrow">↓</div>
+        <div class="node node-blue">שומר בזיכרון ל-23 שעות</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight" style="margin-top:16px;">
+    💡 ה-Presigned URL עצמו תקף 24 שעות. ה-cache שומר אותו ל-23 שעות — שעה פנאי לפני שפג תוקפו. ככה לא פונים ל-AWS בכל בקשה ומחסכים עלויות ועיכוב.
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== ANALYTICS ===== -->
+<div class="section">
+  <h2>📊 אנליטיקה — מה נמדד</h2>
+
+  <div class="grid-2">
+    <div class="box box-gray">
+      <h3>מה Event collection שומר</h3>
+      <ul style="list-style:none; padding:0;">
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">🏠 <strong>site_open</strong> — כניסה לאפליקציה</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">👤 <strong>profile_click</strong> — כניסה לפרופיל ספציפי</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">🖼️ <strong>media_click</strong> — לחיצה על תמונה/וידאו</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">🔘 <strong>button_click</strong> — לחיצה על Message / OnlyFans / קבוצה</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">🎯 <strong>popup_click</strong> — לחיצה על ה-popup</li>
+        <li style="padding:5px 0;">🤖 <strong>bot_start</strong> — /start בבוט</li>
+      </ul>
+    </div>
+    <div class="box box-gray">
+      <h3>מה האדמין רואה</h3>
+      <ul style="list-style:none; padding:0;">
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">📈 משתמשים ייחודיים לאורך זמן</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">🔍 מקורות הפניה (referral)</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">🏆 כמה נכנסו לכל פרופיל</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">📱 לחיצות על Message לפי פרופיל</li>
+        <li style="padding:5px 0; border-bottom:1px solid #1e1e3f;">💰 לחיצות OnlyFans לפי פרופיל</li>
+        <li style="padding:5px 0;">⏰ רישומים חדשים לפי שעה ביום</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== FRONTEND PAGES ===== -->
+<div class="section">
+  <h2>🖥️ Frontend — מה יש בכל עמוד</h2>
+
+  <div class="grid-2">
+    <div class="box box-green">
+      <h3>🏠 ExplorePage <code>/</code></h3>
+      <p>עמוד הבית. גריד של כל הפרופילים. יש טאבים לפילטור לפי tags (All, Trending, Popular, New). מציג IdlePopup אחרי X שניות של אי-פעילות.</p>
+    </div>
+    <div class="box box-green">
+      <h3>👤 ProfilePage <code>/profile/:id</code></h3>
+      <p>עמוד פרופיל מלא. אוואטר, שם, @handle, תג וריפקציה, כפתור Message, כפתורי קישורים (OnlyFans וכו'), גריד מדיה + viewer.</p>
+    </div>
+    <div class="box box-orange">
+      <h3>🔐 AdminPage <code>/admin</code></h3>
+      <p>ניהול מלא. לוגין עם סיסמה, יצירה/עריכת פרופילים, drag-drop מיון, broadcast, ניהול popup, גרף רישומים שעתי.</p>
+    </div>
+    <div class="box box-orange">
+      <h3>📊 AdminAnalyticsPage <code>/admin/analytics</code></h3>
+      <p>דאשבורד גרפים. בחירת תקופה (daily/weekly/monthly). 8 גרפים שונים עם Recharts.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:20px;">קומפוננטים משותפים</h3>
+  <table>
+    <tr><th>קומפוננט</th><th>מה עושה</th></tr>
+    <tr><td><code>ProfileCard</code></td><td>כרטיסיית פרופיל קטנה בגריד</td></tr>
+    <tr><td><code>MediaGrid</code></td><td>גריד תמונות/וידאו עם מונה צפיות</td></tr>
+    <tr><td><code>MediaViewer</code></td><td>צפייה fullscreen עם navigation</td></tr>
+    <tr><td><code>IdlePopup</code></td><td>popup שמופיע אחרי idle — נשמר session 30 דק'</td></tr>
+    <tr><td><code>AdminProfileForm</code></td><td>טופס יצירה/עריכה מלא עם drag-drop מדיה</td></tr>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ===== BOT ===== -->
+<div class="section">
+  <h2>🤖 הבוט — מה הוא עושה</h2>
+
+  <div class="flow">
+    <div class="node node-purple">משתמש שולח /start [payload]</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">payload = מקור ה-referral (למשל UTM)</div>
+    <div class="node node-blue">Upsert TelegramUser — מעדכן אם קיים, יוצר אם לא</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">יוצר bot_start Event</div>
+    <div class="arrow">↓</div>
+    <div class="node node-purple">בודק languageCode של המשתמש</div>
+    <div class="arrow">↓</div>
+    <div class="flow-row">
+      <div class="node node-gray">🇮🇱 עברית</div>
+      <div class="node node-gray">🇺🇸 אנגלית</div>
+      <div class="node node-gray">🇸🇦 ערבית</div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="node node-purple">שולח הודעה מותאמת + כפתור web_app</div>
+  </div>
+
+  <div class="highlight" style="margin-top:20px;">
+    💡 הכפתור <strong>web_app</strong> הוא סוג מיוחד בטלגרם — לוחצים עליו ופותח את ה-Frontend ישירות בתוך טלגרם (Mini App).
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== AUTH ===== -->
+<div class="section">
+  <h2>🔐 Authentication — איך מוגן האדמין</h2>
+
+  <div class="flow">
+    <div class="node node-orange">אדמין מכניס סיסמה</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">POST /api/admin/login</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">השרת מוודא מול ADMIN_PASSWORD מ-env</div>
+    <div class="node node-blue">מחזיר JWT Token — תוקף 24 שעות</div>
+    <div class="arrow">↓</div>
+    <div class="node node-green">Frontend שומר token ב-localStorage</div>
+    <div class="arrow">↓</div>
+    <div class="arrow-label">בכל בקשת אדמין...</div>
+    <div class="node node-blue">Header: Authorization: Bearer &lt;token&gt;</div>
+    <div class="arrow">↓</div>
+    <div class="node node-blue">adminAuth middleware מוודא את ה-token</div>
+    <div class="arrow">↓</div>
+    <div class="flow-row">
+      <div class="node node-green">תקין ✓ → ממשיך</div>
+      <div class="node node-red">לא תקין ✗ → 401 Unauthorized</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== ENV ===== -->
+<div class="section">
+  <h2>⚙️ משתני סביבה — .env</h2>
+  <p style="color:#888; margin-bottom:12px;">צריך קבצי .env ב-backend וב-bot עם הפרטים האלה:</p>
+
+  <div class="grid-2">
+    <div class="box box-blue">
+      <h3>backend/.env</h3>
+      <div class="schema" style="direction:ltr;">
+        MONGODB_URI=mongodb://...<br>
+        AWS_ACCESS_KEY_ID=...<br>
+        AWS_SECRET_ACCESS_KEY=...<br>
+        AWS_BUCKET_NAME=...<br>
+        AWS_REGION=...<br>
+        ADMIN_PASSWORD=...<br>
+        JWT_SECRET=...<br>
+        TELEGRAM_BOT_TOKEN=...<br>
+        PORT=3000
+      </div>
+    </div>
+    <div class="box box-purple">
+      <h3>bot/.env</h3>
+      <div class="schema" style="direction:ltr;">
+        TELEGRAM_BOT_TOKEN=...<br>
+        MONGODB_URI=mongodb://...<br>
+        WEBAPP_URL=https://...
+      </div>
+    </div>
+  </div>
+
+  <div class="box box-red" style="margin-top:16px;">
+    <h3>⚠️ אזהרת אבטחה — JWT_SECRET</h3>
+    <p>אם <strong>לא</strong> הגדרת <code>JWT_SECRET</code> ב-.env, הקוד משתמש אוטומטית ב-<code>"fallback-secret"</code> — מחרוזת שכולם יודעים עליה. זה אומר שכל אחד יכול לזייף token של אדמין. <strong>חייב</strong> להגדיר JWT_SECRET אמיתי וארוך.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== SUMMARY ===== -->
+<div class="section" style="margin-bottom:60px;">
+  <h2>📌 סיכום — מי מדבר עם מי</h2>
+  <table>
+    <tr><th>מי</th><th>מתקשר עם מי</th><th>איך</th></tr>
+    <tr><td>🖥️ Frontend</td><td>⚙️ Backend</td><td>HTTP/REST API (fetch)</td></tr>
+    <tr><td>🤖 Bot</td><td>🍃 MongoDB</td><td>Mongoose ישיר</td></tr>
+    <tr><td>🤖 Bot</td><td>👤 Telegram</td><td>node-telegram-bot-api</td></tr>
+    <tr><td>⚙️ Backend</td><td>🍃 MongoDB</td><td>Mongoose</td></tr>
+    <tr><td>⚙️ Backend</td><td>☁️ AWS S3</td><td>AWS SDK v3</td></tr>
+    <tr><td>⚙️ Backend</td><td>👤 Telegram (broadcast)</td><td>Bot API דרך fetch</td></tr>
+    <tr><td>🖥️ Frontend</td><td>👤 Telegram WebApp</td><td>window.Telegram.WebApp</td></tr>
+  </table>
+</div>
+
+</body>
+</html>
