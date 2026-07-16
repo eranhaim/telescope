@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 
@@ -10,6 +10,7 @@ const COLORS = [
   "#ff6b6b", "#4ecdc4", "#ffe66d", "#a78bfa", "#f472b6",
   "#38bdf8", "#fb923c", "#34d399", "#e879f9", "#facc15",
   "#60a5fa", "#f87171", "#2dd4bf", "#c084fc", "#fbbf24",
+  "#818cf8", "#fb7185", "#22d3ee", "#a3e635", "#f97316",
 ];
 
 const tooltipStyle = {
@@ -36,6 +37,10 @@ function formatTime(iso: string, period: Period): string {
   return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
 }
 
+function toYYYYMMDD(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 function buildGroupedData(
   raw: ProfileDataPoint[],
   profileNames: Record<string, string>,
@@ -53,19 +58,19 @@ function buildGroupedData(
   }
 
   const profileIds = [...totals.entries()]
-    .sort((a, b) => a[1] - b[1])
+    .sort((a, b) => b[1] - a[1])
     .map(([id]) => id);
 
   const data = Array.from(timeMap.entries()).map(([label, counts]) => ({ label, ...counts }));
   return { data, profileIds, profileNames };
 }
 
-function GroupedBarChart({
+function ProfileLineChart({
   title,
   raw,
   profileNames,
   period,
-  height = 300,
+  height = 320,
 }: {
   title: string;
   raw: ProfileDataPoint[];
@@ -77,6 +82,7 @@ function GroupedBarChart({
     () => buildGroupedData(raw, profileNames, period),
     [raw, profileNames, period]
   );
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
   if (data.length === 0) {
     return (
@@ -89,21 +95,138 @@ function GroupedBarChart({
     );
   }
 
+  const toggleProfile = (id: string) => {
+    setHiddenIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
       <h3 className="text-sm font-semibold text-white mb-3">{title}</h3>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data}>
+        <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-          <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
-          <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: "#999", fontSize: 10 }}
+            interval="preserveStartEnd"
+            tickLine={false}
+            axisLine={{ stroke: "#333" }}
+          />
+          <YAxis
+            tick={{ fill: "#999", fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            allowDecimals={false}
+          />
           <Tooltip {...tooltipStyle} />
-          <Legend wrapperStyle={{ fontSize: "11px", color: "#ccc" }} />
           {profileIds.map((id, i) => (
-            <Bar key={id} dataKey={id} name={profileNames[id] || id} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
+            <Line
+              key={id}
+              dataKey={id}
+              name={profileNames[id] || id}
+              stroke={COLORS[i % COLORS.length]}
+              strokeWidth={2}
+              dot={false}
+              hide={hiddenIds.has(id)}
+              connectNulls
+            />
           ))}
-        </BarChart>
+        </LineChart>
       </ResponsiveContainer>
+      <div className="flex flex-wrap gap-2 mt-3">
+        {profileIds.map((id, i) => (
+          <button
+            key={id}
+            onClick={() => toggleProfile(id)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-xs border cursor-pointer transition"
+            style={{
+              borderColor: COLORS[i % COLORS.length],
+              backgroundColor: hiddenIds.has(id) ? "transparent" : COLORS[i % COLORS.length] + "22",
+              color: hiddenIds.has(id) ? "#666" : COLORS[i % COLORS.length],
+              opacity: hiddenIds.has(id) ? 0.4 : 1,
+              textDecoration: hiddenIds.has(id) ? "line-through" : "none",
+            }}
+          >
+            <span
+              className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: COLORS[i % COLORS.length] }}
+            />
+            {profileNames[id] || id}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DateRangePicker({
+  from,
+  to,
+  onChange,
+}: {
+  from: string;
+  to: string;
+  onChange: (from: string, to: string) => void;
+}) {
+  const presets = [
+    { label: "7 ימים", days: 7 },
+    { label: "14 ימים", days: 14 },
+    { label: "30 ימים", days: 30 },
+    { label: "60 ימים", days: 60 },
+    { label: "הכל", days: 0 },
+  ];
+
+  const activeDays = useMemo(() => {
+    if (!from) return 0;
+    const diff = Math.round((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+  }, [from, to]);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex gap-1">
+        {presets.map((p) => (
+          <button
+            key={p.days}
+            onClick={() => {
+              if (p.days === 0) {
+                onChange("", toYYYYMMDD(new Date()));
+              } else {
+                const d = new Date();
+                d.setDate(d.getDate() - p.days);
+                onChange(toYYYYMMDD(d), toYYYYMMDD(new Date()));
+              }
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer border ${
+              activeDays === p.days
+                ? "bg-white text-black border-white"
+                : "bg-dark-surface text-dark-text border-dark-border hover:bg-dark-border"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5 mr-2">
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => onChange(e.target.value, to)}
+          className="bg-dark-surface border border-dark-border text-dark-text rounded-lg px-2 py-1.5 text-xs cursor-pointer"
+        />
+        <span className="text-dark-text-secondary text-xs">—</span>
+        <input
+          type="date"
+          value={to}
+          onChange={(e) => onChange(from, e.target.value)}
+          className="bg-dark-surface border border-dark-border text-dark-text rounded-lg px-2 py-1.5 text-xs cursor-pointer"
+        />
+      </div>
     </div>
   );
 }
@@ -112,6 +235,12 @@ export default function AdminAnalyticsPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("daily");
   const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return toYYYYMMDD(d);
+  });
+  const [dateTo, setDateTo] = useState(() => toYYYYMMDD(new Date()));
   const [uniqueSiteUsers, setUniqueSiteUsers] = useState<{ time: string; count: number }[]>([]);
   const [profileEntrances, setProfileEntrances] = useState<ProfileDataPoint[]>([]);
   const [messageClicks, setMessageClicks] = useState<ProfileDataPoint[]>([]);
@@ -121,9 +250,9 @@ export default function AdminAnalyticsPage() {
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
   const [usersBySource, setUsersBySource] = useState<{ source: string; count: number }[]>([]);
 
-  const fetchData = useCallback(async (p: Period) => {
+  const fetchData = useCallback(async (p: Period, from: string, to: string) => {
     try {
-      const data = await api.adminGetAnalytics(p);
+      const data = await api.adminGetAnalytics(p, from || undefined, to || undefined);
       setUniqueSiteUsers(data.uniqueSiteUsers);
       setProfileEntrances(data.profileEntrances);
       setMessageClicks(data.messageClicks);
@@ -145,8 +274,13 @@ export default function AdminAnalyticsPage() {
       return;
     }
     setLoading(true);
-    fetchData(period);
-  }, [navigate, fetchData, period]);
+    fetchData(period, dateFrom, dateTo);
+  }, [navigate, fetchData, period, dateFrom, dateTo]);
+
+  const handleDateChange = (from: string, to: string) => {
+    setDateFrom(from);
+    setDateTo(to);
+  };
 
   const sourceChartData = useMemo(() => {
     const SOURCE_LABELS: Record<string, string> = {
@@ -193,8 +327,8 @@ export default function AdminAnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-dark-bg p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold text-white">אנליטיקס</h1>
           <button
             onClick={() => navigate("/admin")}
@@ -204,20 +338,24 @@ export default function AdminAnalyticsPage() {
           </button>
         </div>
 
-        <div className="flex gap-2 mb-6">
-          {(["daily", "weekly", "monthly"] as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer border ${
-                period === p
-                  ? "bg-white text-black border-white"
-                  : "bg-dark-surface text-dark-text border-dark-border hover:bg-dark-border"
-              }`}
-            >
-              {PERIOD_LABELS[p]}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          <div className="flex gap-2">
+            {(["daily", "weekly", "monthly"] as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer border ${
+                  period === p
+                    ? "bg-white text-black border-white"
+                    : "bg-dark-surface text-dark-text border-dark-border hover:bg-dark-border"
+                }`}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <div className="h-6 w-px bg-dark-border" />
+          <DateRangePicker from={dateFrom} to={dateTo} onChange={handleDateChange} />
         </div>
 
         {loading ? (
@@ -260,28 +398,28 @@ export default function AdminAnalyticsPage() {
               )}
             </div>
 
-            <GroupedBarChart
+            <ProfileLineChart
               title="כניסות ייחודיות לפרופילים"
               raw={profileEntrances}
               profileNames={profileNames}
               period={period}
             />
 
-            <GroupedBarChart
+            <ProfileLineChart
               title="לחיצות על הודעה"
               raw={messageClicks}
               profileNames={profileNames}
               period={period}
             />
 
-            <GroupedBarChart
+            <ProfileLineChart
               title="לחיצות על קבוצת טלגרם"
               raw={telegramGroupClicks}
               profileNames={profileNames}
               period={period}
             />
 
-            <GroupedBarChart
+            <ProfileLineChart
               title="לחיצות על OnlyFans"
               raw={onlyfansClicks}
               profileNames={profileNames}
@@ -309,16 +447,16 @@ export default function AdminAnalyticsPage() {
               <h3 className="text-sm font-semibold text-white mb-3">סה"כ לחיצות לפי סוג</h3>
               {totalClicksData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={totalClicksData}>
+                  <LineChart data={totalClicksData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                     <XAxis dataKey="label" tick={{ fill: "#999", fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#333" }} />
                     <YAxis tick={{ fill: "#999", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
                     <Tooltip {...tooltipStyle} />
                     <Legend wrapperStyle={{ fontSize: "11px", color: "#ccc" }} />
-                    <Bar dataKey="message" name="הודעה" fill="#ff6b6b" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="telegram" name="קבוצת טלגרם" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="onlyfans" name="OnlyFans" fill="#f472b6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Line dataKey="message" name="הודעה" stroke="#ff6b6b" strokeWidth={2} dot={false} />
+                    <Line dataKey="telegram" name="קבוצת טלגרם" stroke="#38bdf8" strokeWidth={2} dot={false} />
+                    <Line dataKey="onlyfans" name="OnlyFans" stroke="#f472b6" strokeWidth={2} dot={false} />
+                  </LineChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-[300px] text-dark-text-secondary text-sm">אין נתונים עדיין</div>

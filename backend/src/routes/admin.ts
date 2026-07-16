@@ -183,22 +183,39 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
     const period = (req.query.period as string) || "daily";
 
     let since: Date;
+    let until: Date | undefined;
     let dateTrunc: Record<string, unknown>;
 
     const now = new Date();
-    if (period === "monthly") {
+
+    if (req.query.from) {
+      since = new Date(req.query.from as string);
+    } else if (period === "monthly") {
       since = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-      dateTrunc = { year: { $year: "$at" }, month: { $month: "$at" } };
     } else if (period === "weekly") {
       since = new Date(now.getTime() - 12 * 7 * 24 * 60 * 60 * 1000);
-      dateTrunc = { year: { $isoWeekYear: "$at" }, week: { $isoWeek: "$at" } };
     } else {
       since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    if (req.query.to) {
+      until = new Date(req.query.to as string);
+      until.setDate(until.getDate() + 1);
+    }
+
+    if (period === "monthly") {
+      dateTrunc = { year: { $year: "$at" }, month: { $month: "$at" } };
+    } else if (period === "weekly") {
+      dateTrunc = { year: { $isoWeekYear: "$at" }, week: { $isoWeek: "$at" } };
+    } else {
       dateTrunc = { year: { $year: "$at" }, month: { $month: "$at" }, day: { $dayOfMonth: "$at" } };
     }
 
+    const dateFilter: Record<string, unknown> = { $gte: since };
+    if (until) dateFilter.$lte = until;
+
     const uniqueProfileAgg = (type: string, matchExtra: Record<string, unknown> = {}) => [
-      { $match: { type, at: { $gte: since }, telegramUserId: { $ne: null }, ...matchExtra } },
+      { $match: { type, at: dateFilter, telegramUserId: { $ne: null }, ...matchExtra } },
       { $group: { _id: { profileId: "$profileId", telegramUserId: "$telegramUserId", ...dateTrunc } } },
       { $group: { _id: { profileId: "$_id.profileId", ...Object.fromEntries(Object.keys(dateTrunc).map(k => [k, `$_id.${k}`])) }, count: { $sum: 1 } } },
       { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
@@ -206,7 +223,7 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
 
     const [uniqueSiteUsers, profileEntrances, messageClicks, telegramGroupClicks, onlyfansClicks, popupClicks, profiles, usersBySource] = await Promise.all([
       Event.aggregate([
-        { $match: { type: "site_open", at: { $gte: since }, telegramUserId: { $ne: null } } },
+        { $match: { type: "site_open", at: dateFilter, telegramUserId: { $ne: null } } },
         { $group: { _id: { telegramUserId: "$telegramUserId", ...dateTrunc } } },
         { $group: { _id: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [k, `$_id.${k}`])) }, count: { $sum: 1 } } },
         { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
@@ -216,7 +233,7 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
       Event.aggregate(uniqueProfileAgg("button_click", { buttonType: "link_button", linkType: "telegram_group" })),
       Event.aggregate(uniqueProfileAgg("button_click", { buttonType: "link_button", linkType: "onlyfans" })),
       Event.aggregate([
-        { $match: { type: "popup_click", at: { $gte: since } } },
+        { $match: { type: "popup_click", at: dateFilter } },
         { $group: { _id: { ...dateTrunc }, count: { $sum: 1 } } },
         { $sort: { ...Object.fromEntries(Object.keys(dateTrunc).map(k => [`_id.${k}`, 1 as const])) } },
       ]),

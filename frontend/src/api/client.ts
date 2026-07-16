@@ -143,7 +143,7 @@ export const api = {
     return request(`/admin/users/hourly?days=${days}`, { headers: authHeaders() });
   },
 
-  adminGetAnalytics(period: "daily" | "weekly" | "monthly" = "daily"): Promise<{
+  adminGetAnalytics(period: "daily" | "weekly" | "monthly" = "daily", from?: string, to?: string): Promise<{
     uniqueSiteUsers: { time: string; count: number }[];
     profileEntrances: { profileId: string; time: string; count: number }[];
     messageClicks: { profileId: string; time: string; count: number }[];
@@ -153,7 +153,10 @@ export const api = {
     profileNames: Record<string, string>;
     usersBySource: { source: string; count: number }[];
   }> {
-    return request(`/admin/analytics?period=${period}`, { headers: authHeaders() });
+    const params = new URLSearchParams({ period });
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    return request(`/admin/analytics?${params}`, { headers: authHeaders() });
   },
 
   async adminExportUsers(): Promise<void> {
