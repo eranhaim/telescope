@@ -239,6 +239,7 @@ router.get("/analytics", adminAuth, async (req: Request, res: Response) => {
       ]),
       Profile.find({}, { name: 1 }).lean(),
       TelegramUser.aggregate([
+        { $match: { firstSeen: dateFilter } },
         { $group: { _id: { $ifNull: ["$source", "direct"] }, count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
