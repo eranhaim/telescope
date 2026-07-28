@@ -13,25 +13,59 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 async function getOrCreateConfig() {
   let config = await PopupConfig.findOne();
   if (!config) config = await PopupConfig.create({});
+
+  // Migrate legacy single-poster format to multi-poster
+  const raw = config.toObject() as unknown as Record<string, unknown>;
+  if (!raw.posters && raw.photos) {
+    const migrated = {
+      posters: [{
+        name: "פוסטר 1",
+        photos: (raw.photos as string[]) || [],
+        thumbnails: (raw.thumbnails as string[]) || [],
+        buttonLabel: (raw.buttonLabel as string) || "",
+        buttonUrl: (raw.buttonUrl as string) || "",
+        enabled: true,
+      }],
+      idleSeconds: (raw.idleSeconds as number) || 5,
+      enabled: (raw.enabled as boolean) || false,
+    };
+    await PopupConfig.collection.replaceOne({ _id: config._id }, migrated);
+    config = await PopupConfig.findById(config._id);
+    if (!config) config = await PopupConfig.create({});
+  }
+
   return config;
 }
 
+// Public endpoint: returns enabled posters, each with a random image
 router.get("/", async (_req: Request, res: Response) => {
   try {
     const config = await PopupConfig.findOne();
-    if (!config || !config.enabled || config.photos.length === 0) {
+    if (!config || !config.enabled) {
       res.json({ enabled: false });
       return;
     }
 
-    const randomKey = config.photos[Math.floor(Math.random() * config.photos.length)];
-    const imageUrl = await getSignedMediaUrl(randomKey);
+    const enabledPosters = (config.posters || []).filter(p => p.enabled && p.photos.length > 0);
+    if (enabledPosters.length === 0) {
+      res.json({ enabled: false });
+      return;
+    }
+
+    const posters = await Promise.all(
+      enabledPosters.map(async (p) => {
+        const randomKey = p.photos[Math.floor(Math.random() * p.photos.length)];
+        return {
+          imageUrl: await getSignedMediaUrl(randomKey),
+          buttonLabel: p.buttonLabel,
+          buttonUrl: p.buttonUrl,
+        };
+      })
+    );
 
     res.json({
       enabled: true,
-      imageUrl,
-      buttonLabel: config.buttonLabel,
-      buttonUrl: config.buttonUrl,
+      posters,
       idleSeconds: config.idleSeconds,
     });
   } catch (err) {
@@ -40,21 +74,32 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 });
 
+// Admin: get full config
 router.get("/admin", adminAuth, async (_req: Request, res: Response) => {
   try {
     const config = await getOrCreateConfig();
-    const photos = await Promise.all(
-      config.photos.map(async (key, i) => ({
-        key,
-        url: await getSignedMediaUrl(key),
-        thumbnailUrl: config.thumbnails[i] ? await getSignedMediaUrl(config.thumbnails[i]) : undefined,
-      }))
+    const posters = await Promise.all(
+      (config.posters || []).map(async (poster) => {
+        const photos = await Promise.all(
+          poster.photos.map(async (key, i) => ({
+            key,
+            url: await getSignedMediaUrl(key),
+            thumbnailUrl: poster.thumbnails[i] ? await getSignedMediaUrl(poster.thumbnails[i]) : undefined,
+          }))
+        );
+        return {
+          _id: poster._id.toString(),
+          name: poster.name,
+          photos,
+          buttonLabel: poster.buttonLabel,
+          buttonUrl: poster.buttonUrl,
+          enabled: poster.enabled,
+        };
+      })
     );
 
     res.json({
-      photos,
-      buttonLabel: config.buttonLabel,
-      buttonUrl: config.buttonUrl,
+      posters,
       idleSeconds: config.idleSeconds,
       enabled: config.enabled,
     });
@@ -64,13 +109,12 @@ router.get("/admin", adminAuth, async (_req: Request, res: Response) => {
   }
 });
 
+// Admin: update global settings
 router.put("/admin", adminAuth, async (req: Request, res: Response) => {
   try {
-    const { buttonLabel, buttonUrl, idleSeconds, enabled } = req.body;
+    const { idleSeconds, enabled } = req.body;
     const config = await getOrCreateConfig();
 
-    if (buttonLabel !== undefined) config.buttonLabel = buttonLabel;
-    if (buttonUrl !== undefined) config.buttonUrl = buttonUrl;
     if (idleSeconds !== undefined) config.idleSeconds = idleSeconds;
     if (enabled !== undefined) config.enabled = enabled;
 
@@ -82,15 +126,104 @@ router.put("/admin", adminAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/admin/upload", adminAuth, upload.single("file"), async (req: Request, res: Response) => {
+// Admin: add a new poster
+router.post("/admin/poster", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { name, buttonLabel, buttonUrl } = req.body;
+    const config = await getOrCreateConfig();
+    config.posters.push({
+      name: name || `פוסטר ${config.posters.length + 1}`,
+      photos: [],
+      thumbnails: [],
+      buttonLabel: buttonLabel || "",
+      buttonUrl: buttonUrl || "",
+      enabled: true,
+    });
+    await config.save();
+    const newPoster = config.posters[config.posters.length - 1];
+    res.json({
+      _id: newPoster._id.toString(),
+      name: newPoster.name,
+      photos: [],
+      buttonLabel: newPoster.buttonLabel,
+      buttonUrl: newPoster.buttonUrl,
+      enabled: newPoster.enabled,
+    });
+  } catch (err) {
+    console.error("POST /api/popup/admin/poster error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: update a poster's settings
+router.put("/admin/poster/:posterId", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { posterId } = req.params;
+    const { name, buttonLabel, buttonUrl, enabled } = req.body;
+    const config = await getOrCreateConfig();
+
+    const poster = config.posters.find(p => p._id.toString() === posterId);
+    if (!poster) {
+      res.status(404).json({ error: "Poster not found" });
+      return;
+    }
+
+    if (name !== undefined) poster.name = name;
+    if (buttonLabel !== undefined) poster.buttonLabel = buttonLabel;
+    if (buttonUrl !== undefined) poster.buttonUrl = buttonUrl;
+    if (enabled !== undefined) poster.enabled = enabled;
+
+    await config.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("PUT /api/popup/admin/poster error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: delete a poster
+router.delete("/admin/poster/:posterId", adminAuth, async (req: Request, res: Response) => {
+  try {
+    const { posterId } = req.params;
+    const config = await getOrCreateConfig();
+
+    const posterIdx = config.posters.findIndex(p => p._id.toString() === posterId);
+    if (posterIdx === -1) {
+      res.status(404).json({ error: "Poster not found" });
+      return;
+    }
+    const poster = config.posters[posterIdx];
+
+    const keysToDelete = [...poster.photos, ...poster.thumbnails].filter(Boolean);
+    await Promise.all(keysToDelete.map(k => deleteFromS3(k).catch(() => {})));
+
+    config.posters.splice(posterIdx, 1);
+    await config.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/popup/admin/poster error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Admin: upload photo to a specific poster
+router.post("/admin/poster/:posterId/upload", adminAuth, upload.single("file"), async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: "No file provided" });
       return;
     }
 
+    const { posterId } = req.params;
+    const config = await getOrCreateConfig();
+    const poster = config.posters.find(p => p._id.toString() === posterId);
+    if (!poster) {
+      res.status(404).json({ error: "Poster not found" });
+      return;
+    }
+
     const ext = path.extname(req.file.originalname);
-    const key = `popup/${uuidv4()}${ext}`;
+    const key = `popup/${posterId}/${uuidv4()}${ext}`;
     await uploadBufferToS3(req.file.buffer, key, req.file.mimetype);
 
     let thumbnailKey = "";
@@ -104,9 +237,8 @@ router.post("/admin/upload", adminAuth, upload.single("file"), async (req: Reque
       }
     }
 
-    const config = await getOrCreateConfig();
-    config.photos.push(key);
-    config.thumbnails.push(thumbnailKey);
+    poster.photos.push(key);
+    poster.thumbnails.push(thumbnailKey);
     await config.save();
 
     const url = await getSignedMediaUrl(key);
@@ -114,21 +246,28 @@ router.post("/admin/upload", adminAuth, upload.single("file"), async (req: Reque
 
     res.json({ key, url, thumbnailUrl });
   } catch (err) {
-    console.error("POST /api/popup/admin/upload error:", err);
+    console.error("POST /api/popup/admin/poster/:id/upload error:", err);
     res.status(500).json({ error: "Upload failed" });
   }
 });
 
-router.delete("/admin/photo/:key(*)", adminAuth, async (req: Request, res: Response) => {
+// Admin: delete a photo from a specific poster
+router.delete("/admin/poster/:posterId/photo/:key(*)", adminAuth, async (req: Request, res: Response) => {
   try {
+    const { posterId } = req.params;
     const key = Array.isArray(req.params.key) ? req.params.key.join("/") : req.params.key;
     const config = await getOrCreateConfig();
+    const poster = config.posters.find(p => p._id.toString() === posterId);
+    if (!poster) {
+      res.status(404).json({ error: "Poster not found" });
+      return;
+    }
 
-    const idx = config.photos.indexOf(key);
+    const idx = poster.photos.indexOf(key);
     if (idx !== -1) {
-      const thumbKey = config.thumbnails[idx];
-      config.photos.splice(idx, 1);
-      config.thumbnails.splice(idx, 1);
+      const thumbKey = poster.thumbnails[idx];
+      poster.photos.splice(idx, 1);
+      poster.thumbnails.splice(idx, 1);
       await config.save();
 
       await deleteFromS3(key);
@@ -137,7 +276,7 @@ router.delete("/admin/photo/:key(*)", adminAuth, async (req: Request, res: Respo
 
     res.json({ success: true });
   } catch (err) {
-    console.error("DELETE /api/popup/admin/photo error:", err);
+    console.error("DELETE /api/popup/admin/poster/:id/photo error:", err);
     res.status(500).json({ error: "Delete failed" });
   }
 });

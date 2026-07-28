@@ -122,11 +122,17 @@ export default function AdminPage() {
 
   const [popupEnabled, setPopupEnabled] = useState(false);
   const [popupIdleSeconds, setPopupIdleSeconds] = useState(5);
-  const [popupButtonLabel, setPopupButtonLabel] = useState("");
-  const [popupButtonUrl, setPopupButtonUrl] = useState("");
-  const [popupPhotos, setPopupPhotos] = useState<{ key: string; url: string; thumbnailUrl?: string }[]>([]);
+  const [popupPosters, setPopupPosters] = useState<{
+    _id: string;
+    name: string;
+    photos: { key: string; url: string; thumbnailUrl?: string }[];
+    buttonLabel: string;
+    buttonUrl: string;
+    enabled: boolean;
+  }[]>([]);
   const [popupSaving, setPopupSaving] = useState(false);
-  const popupFileRef = useRef<HTMLInputElement>(null);
+  const [expandedPoster, setExpandedPoster] = useState<string | null>(null);
+  const posterFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
@@ -170,9 +176,7 @@ export default function AdminPage() {
       setTotalUsers(hourly.totalUsers);
       setPopupEnabled(popupData.enabled);
       setPopupIdleSeconds(popupData.idleSeconds);
-      setPopupButtonLabel(popupData.buttonLabel);
-      setPopupButtonUrl(popupData.buttonUrl);
-      setPopupPhotos(popupData.photos);
+      setPopupPosters(popupData.posters);
       setBroadcastHistory(bcHistory);
 
       const formatted = hourly.hourly.map((h) => {
@@ -391,83 +395,15 @@ export default function AdminPage() {
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="text-xs text-dark-text-secondary block mb-1">שניות חוסר פעילות</label>
-              <input
-                type="number"
-                min={1}
-                value={popupIdleSeconds}
-                onChange={(e) => setPopupIdleSeconds(Number(e.target.value))}
-                className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-dark-text-secondary block mb-1">טקסט כפתור</label>
-              <input
-                type="text"
-                value={popupButtonLabel}
-                onChange={(e) => setPopupButtonLabel(e.target.value)}
-                className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
-              />
-            </div>
-          </div>
-
           <div className="mb-3">
-            <label className="text-xs text-dark-text-secondary block mb-1">קישור כפתור</label>
+            <label className="text-xs text-dark-text-secondary block mb-1">שניות חוסר פעילות</label>
             <input
-              type="url"
-              value={popupButtonUrl}
-              onChange={(e) => setPopupButtonUrl(e.target.value)}
+              type="number"
+              min={1}
+              value={popupIdleSeconds}
+              onChange={(e) => setPopupIdleSeconds(Number(e.target.value))}
               className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
-              dir="ltr"
             />
-          </div>
-
-          <div className="mb-3">
-            <label className="text-xs text-dark-text-secondary block mb-1">תמונות פופאפ</label>
-            <div className="flex gap-2 flex-wrap">
-              {popupPhotos.map((photo) => (
-                <div key={photo.key} className="relative w-20 h-20 rounded-lg overflow-hidden bg-dark-surface group">
-                  <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
-                  <button
-                    onClick={async () => {
-                      if (!confirm("למחוק תמונה?")) return;
-                      await api.adminDeletePopupPhoto(photo.key);
-                      setPopupPhotos((prev) => prev.filter((p) => p.key !== photo.key));
-                    }}
-                    className="absolute inset-0 bg-black/60 text-red-400 opacity-0 group-hover:opacity-100 transition flex items-center justify-center border-0 cursor-pointer text-lg"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => popupFileRef.current?.click()}
-                className="w-20 h-20 rounded-lg border-2 border-dashed border-dark-border text-dark-text-secondary hover:border-accent hover:text-accent flex items-center justify-center transition cursor-pointer bg-transparent text-2xl"
-              >
-                +
-              </button>
-              <input
-                ref={popupFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  try {
-                    const result = await api.adminUploadPopupPhoto(file);
-                    setPopupPhotos((prev) => [...prev, result]);
-                  } catch (err) {
-                    console.error("Popup photo upload failed:", err);
-                  }
-                  e.target.value = "";
-                }}
-              />
-            </div>
           </div>
 
           <button
@@ -478,8 +414,6 @@ export default function AdminPage() {
                 await api.adminUpdatePopup({
                   enabled: popupEnabled,
                   idleSeconds: popupIdleSeconds,
-                  buttonLabel: popupButtonLabel,
-                  buttonUrl: popupButtonUrl,
                 });
               } catch (err) {
                 console.error("Failed to save popup config:", err);
@@ -487,10 +421,178 @@ export default function AdminPage() {
                 setPopupSaving(false);
               }
             }}
-            className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition border-0 cursor-pointer"
+            className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition border-0 cursor-pointer mb-4"
           >
-            {popupSaving ? "שומר..." : "שמור הגדרות פופאפ"}
+            {popupSaving ? "שומר..." : "שמור הגדרות כלליות"}
           </button>
+
+          <div className="border-t border-dark-border pt-3">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-white">פוסטרים ({popupPosters.length})</h4>
+              <button
+                onClick={async () => {
+                  try {
+                    const newPoster = await api.adminCreatePoster({});
+                    setPopupPosters((prev) => [...prev, { ...newPoster, photos: [] }]);
+                    setExpandedPoster(newPoster._id);
+                  } catch (err) {
+                    console.error("Failed to create poster:", err);
+                  }
+                }}
+                className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg text-xs font-medium transition border-0 cursor-pointer"
+              >
+                + פוסטר חדש
+              </button>
+            </div>
+
+            {popupPosters.length === 0 ? (
+              <p className="text-dark-text-secondary text-xs text-center py-4">אין פוסטרים עדיין. הוסף פוסטר חדש.</p>
+            ) : (
+              <div className="space-y-2">
+                {popupPosters.map((poster) => {
+                  const isExpanded = expandedPoster === poster._id;
+                  return (
+                    <div key={poster._id} className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden">
+                      <div
+                        className="flex items-center gap-3 p-3 cursor-pointer"
+                        onClick={() => setExpandedPoster(isExpanded ? null : poster._id)}
+                      >
+                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${poster.enabled ? "bg-green-400" : "bg-gray-500"}`} />
+                        <span className="text-sm text-white flex-1 truncate">{poster.name || "פוסטר ללא שם"}</span>
+                        <span className="text-[10px] text-dark-text-secondary">{poster.photos.length} תמונות</span>
+                        <svg className={`w-4 h-4 text-dark-text-secondary transition ${isExpanded ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="px-3 pb-3 border-t border-dark-border pt-3 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <div
+                                className={`w-9 h-4.5 rounded-full relative transition ${poster.enabled ? "bg-accent" : "bg-dark-card"}`}
+                                onClick={async () => {
+                                  const newEnabled = !poster.enabled;
+                                  setPopupPosters((prev) => prev.map((p) => p._id === poster._id ? { ...p, enabled: newEnabled } : p));
+                                  await api.adminUpdatePoster(poster._id, { enabled: newEnabled });
+                                }}
+                              >
+                                <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-all ${poster.enabled ? "left-[18px]" : "left-0.5"}`} />
+                              </div>
+                              <span className="text-xs text-dark-text-secondary">{poster.enabled ? "פעיל" : "כבוי"}</span>
+                            </label>
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-dark-text-secondary block mb-1">שם הפוסטר</label>
+                            <input
+                              type="text"
+                              value={poster.name}
+                              onChange={(e) => setPopupPosters((prev) => prev.map((p) => p._id === poster._id ? { ...p, name: e.target.value } : p))}
+                              onBlur={() => api.adminUpdatePoster(poster._id, { name: poster.name })}
+                              className="w-full bg-dark-card text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-dark-text-secondary block mb-1">טקסט כפתור</label>
+                            <input
+                              type="text"
+                              value={poster.buttonLabel}
+                              onChange={(e) => setPopupPosters((prev) => prev.map((p) => p._id === poster._id ? { ...p, buttonLabel: e.target.value } : p))}
+                              onBlur={() => api.adminUpdatePoster(poster._id, { buttonLabel: poster.buttonLabel })}
+                              className="w-full bg-dark-card text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-dark-text-secondary block mb-1">קישור כפתור</label>
+                            <input
+                              type="url"
+                              value={poster.buttonUrl}
+                              onChange={(e) => setPopupPosters((prev) => prev.map((p) => p._id === poster._id ? { ...p, buttonUrl: e.target.value } : p))}
+                              onBlur={() => api.adminUpdatePoster(poster._id, { buttonUrl: poster.buttonUrl })}
+                              className="w-full bg-dark-card text-white border border-dark-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent/50 transition"
+                              dir="ltr"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-dark-text-secondary block mb-1">בנק תמונות</label>
+                            <div className="flex gap-2 flex-wrap">
+                              {poster.photos.map((photo) => (
+                                <div key={photo.key} className="relative w-16 h-16 rounded-lg overflow-hidden bg-dark-card group">
+                                  <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm("למחוק תמונה?")) return;
+                                      await api.adminDeletePosterPhoto(poster._id, photo.key);
+                                      setPopupPosters((prev) =>
+                                        prev.map((p) =>
+                                          p._id === poster._id
+                                            ? { ...p, photos: p.photos.filter((ph) => ph.key !== photo.key) }
+                                            : p
+                                        )
+                                      );
+                                    }}
+                                    className="absolute inset-0 bg-black/60 text-red-400 opacity-0 group-hover:opacity-100 transition flex items-center justify-center border-0 cursor-pointer text-lg"
+                                  >
+                                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                onClick={() => posterFileRefs.current[poster._id]?.click()}
+                                className="w-16 h-16 rounded-lg border-2 border-dashed border-dark-border text-dark-text-secondary hover:border-accent hover:text-accent flex items-center justify-center transition cursor-pointer bg-transparent text-xl"
+                              >
+                                +
+                              </button>
+                              <input
+                                ref={(el) => { posterFileRefs.current[poster._id] = el; }}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  try {
+                                    const result = await api.adminUploadPosterPhoto(poster._id, file);
+                                    setPopupPosters((prev) =>
+                                      prev.map((p) =>
+                                        p._id === poster._id
+                                          ? { ...p, photos: [...p.photos, result] }
+                                          : p
+                                      )
+                                    );
+                                  } catch (err) {
+                                    console.error("Poster photo upload failed:", err);
+                                  }
+                                  e.target.value = "";
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={async () => {
+                              if (!confirm("למחוק את הפוסטר הזה ואת כל התמונות שלו?")) return;
+                              await api.adminDeletePoster(poster._id);
+                              setPopupPosters((prev) => prev.filter((p) => p._id !== poster._id));
+                            }}
+                            className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg text-xs font-medium transition border-0 cursor-pointer mt-1"
+                          >
+                            מחק פוסטר
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">

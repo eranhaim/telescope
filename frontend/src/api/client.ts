@@ -201,21 +201,30 @@ export const api = {
     }).catch(() => {});
   },
 
-  getPopup(): Promise<{ enabled: boolean; imageUrl?: string; buttonLabel?: string; buttonUrl?: string; idleSeconds?: number }> {
+  getPopup(): Promise<{
+    enabled: boolean;
+    posters?: { imageUrl: string; buttonLabel: string; buttonUrl: string }[];
+    idleSeconds?: number;
+  }> {
     return request("/popup");
   },
 
   adminGetPopup(): Promise<{
-    photos: { key: string; url: string; thumbnailUrl?: string }[];
-    buttonLabel: string;
-    buttonUrl: string;
+    posters: {
+      _id: string;
+      name: string;
+      photos: { key: string; url: string; thumbnailUrl?: string }[];
+      buttonLabel: string;
+      buttonUrl: string;
+      enabled: boolean;
+    }[];
     idleSeconds: number;
     enabled: boolean;
   }> {
     return request("/popup/admin", { headers: authHeaders() });
   },
 
-  adminUpdatePopup(data: { buttonLabel?: string; buttonUrl?: string; idleSeconds?: number; enabled?: boolean }): Promise<void> {
+  adminUpdatePopup(data: { idleSeconds?: number; enabled?: boolean }): Promise<void> {
     return request("/popup/admin", {
       method: "PUT",
       body: JSON.stringify(data),
@@ -223,10 +232,40 @@ export const api = {
     });
   },
 
-  async adminUploadPopupPhoto(file: File): Promise<{ key: string; url: string; thumbnailUrl?: string }> {
+  adminCreatePoster(data: { name?: string; buttonLabel?: string; buttonUrl?: string }): Promise<{
+    _id: string;
+    name: string;
+    photos: never[];
+    buttonLabel: string;
+    buttonUrl: string;
+    enabled: boolean;
+  }> {
+    return request("/popup/admin/poster", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: authHeaders(),
+    });
+  },
+
+  adminUpdatePoster(posterId: string, data: { name?: string; buttonLabel?: string; buttonUrl?: string; enabled?: boolean }): Promise<void> {
+    return request(`/popup/admin/poster/${posterId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+      headers: authHeaders(),
+    });
+  },
+
+  adminDeletePoster(posterId: string): Promise<void> {
+    return request(`/popup/admin/poster/${posterId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  },
+
+  async adminUploadPosterPhoto(posterId: string, file: File): Promise<{ key: string; url: string; thumbnailUrl?: string }> {
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch(`${BASE}/popup/admin/upload`, {
+    const res = await fetch(`${BASE}/popup/admin/poster/${posterId}/upload`, {
       method: "POST",
       headers: authHeaders(),
       body: formData,
@@ -235,8 +274,8 @@ export const api = {
     return res.json();
   },
 
-  adminDeletePopupPhoto(key: string): Promise<void> {
-    return request(`/popup/admin/photo/${encodeURIComponent(key)}`, {
+  adminDeletePosterPhoto(posterId: string, key: string): Promise<void> {
+    return request(`/popup/admin/poster/${posterId}/photo/${encodeURIComponent(key)}`, {
       method: "DELETE",
       headers: authHeaders(),
     });
