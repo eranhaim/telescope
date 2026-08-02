@@ -76,23 +76,25 @@ export default function ExplorePage() {
       {/* Gift floating button */}
       <button
         onClick={() => setGiftOpen(true)}
-        className="fixed z-50 flex items-center gap-2 px-5 py-3 rounded-full text-white font-bold text-base shadow-2xl border-0 cursor-pointer"
+        className="fixed z-50 flex items-center justify-center rounded-full text-white shadow-2xl border-0 cursor-pointer"
         style={{
           bottom: "4rem",
-          left: "50%",
-          transform: "translateX(-50%)",
+          right: "1.75rem",
+          width: "68px",
+          height: "68px",
+          fontSize: "2.1rem",
           background: "linear-gradient(135deg, #be0000, #ff1a1a)",
           animation: "giftPulse 1.8s ease-in-out infinite",
         }}
       >
-        🎁 מחכה לך מתנה
+        🎁
       </button>
 
       <style>{`
         @keyframes giftPulse {
-          0% { box-shadow: 0 0 0 0 rgba(255,26,26,0.7); transform: translateX(-50%) scale(1); }
-          50% { box-shadow: 0 0 0 14px rgba(255,26,26,0); transform: translateX(-50%) scale(1.08); }
-          100% { box-shadow: 0 0 0 0 rgba(255,26,26,0); transform: translateX(-50%) scale(1); }
+          0% { box-shadow: 0 0 0 0 rgba(255,26,26,0.7); transform: scale(1); }
+          50% { box-shadow: 0 0 0 14px rgba(255,26,26,0); transform: scale(1.08); }
+          100% { box-shadow: 0 0 0 0 rgba(255,26,26,0); transform: scale(1); }
         }
       `}</style>
 
