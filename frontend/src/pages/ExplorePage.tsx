@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { Profile } from "../api/client";
 import ProfileCard from "../components/ProfileCard";
 import IdlePopup from "../components/IdlePopup";
+import GiftPopup from "../components/GiftPopup";
 import { useLocale } from "../i18n/useLocale";
 
 export default function ExplorePage() {
@@ -12,6 +13,7 @@ export default function ExplorePage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeTab, setActiveTab] = useState("");
   const [loading, setLoading] = useState(true);
+  const [giftOpen, setGiftOpen] = useState(false);
 
   const tabs = [
     { key: "", label: t("tabAll"), icon: "✨" },
@@ -68,6 +70,31 @@ export default function ExplorePage() {
           ))}
         </div>
       </header>
+
+      {giftOpen && <GiftPopup onClose={() => setGiftOpen(false)} />}
+
+      {/* Gift floating button */}
+      <button
+        onClick={() => setGiftOpen(true)}
+        className="fixed z-50 flex items-center gap-2 px-5 py-3 rounded-full text-white font-bold text-base shadow-2xl border-0 cursor-pointer"
+        style={{
+          bottom: "4rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "linear-gradient(135deg, #be0000, #ff1a1a)",
+          animation: "giftPulse 1.8s ease-in-out infinite",
+        }}
+      >
+        🎁 יש לך מתנה
+      </button>
+
+      <style>{`
+        @keyframes giftPulse {
+          0% { box-shadow: 0 0 0 0 rgba(255,26,26,0.7); transform: translateX(-50%) scale(1); }
+          50% { box-shadow: 0 0 0 14px rgba(255,26,26,0); transform: translateX(-50%) scale(1.08); }
+          100% { box-shadow: 0 0 0 0 rgba(255,26,26,0); transform: translateX(-50%) scale(1); }
+        }
+      `}</style>
 
       <main className="flex-1 px-2 pb-20">
         {loading ? (

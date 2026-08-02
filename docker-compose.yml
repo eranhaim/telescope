@@ -1,12 +1,33 @@
 services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  mongo-seed:
+    image: mongo:7
+    depends_on:
+      - mongo
+    volumes:
+      - ./mongo-seed:/seed
+    command: >
+      bash -c "sleep 3 && mongosh mongodb://mongo:27017/telescope /seed/seed.js"
+    restart: "no"
+
   backend:
     build: ./backend
     restart: unless-stopped
     env_file: .env
     environment:
       - PORT=7291
+      - MONGODB_URI=mongodb://mongo:27017/telescope
     expose:
       - "7291"
+    depends_on:
+      - mongo
 
   frontend:
     build: ./frontend
@@ -20,5 +41,10 @@ services:
     build: ./bot
     restart: unless-stopped
     env_file: .env
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/telescope
     depends_on:
-      - backend
+      - mongo
+
+volumes:
+  mongo_data:
