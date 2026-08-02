@@ -6,19 +6,25 @@ interface Props {
 }
 
 export default function ProfileCard({ profile, onClick }: Props) {
-  const imageUrl = profile.profileImageThumbUrl || profile.profileImageUrl || "/placeholder.svg";
+  const imageUrl = profile.profileImageThumbUrl || profile.profileImageUrl || "";
 
   return (
     <button
       onClick={onClick}
       className="relative aspect-[3/4] overflow-hidden rounded-xl group cursor-pointer border-0 p-0 bg-transparent w-full"
     >
-      <img
-        src={imageUrl}
-        alt={profile.name}
-        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-        loading="lazy"
-      />
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={profile.name}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-dark-surface flex items-center justify-center text-6xl">
+          👤
+        </div>
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
         <div className="flex items-center gap-1.5">

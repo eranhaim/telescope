@@ -85,7 +85,7 @@ export default function ExplorePage() {
           animation: "giftPulse 1.8s ease-in-out infinite",
         }}
       >
-        🎁 יש לך מתנה
+        🎁 מחכה לך מתנה
       </button>
 
       <style>{`
