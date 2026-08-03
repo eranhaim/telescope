@@ -6,6 +6,7 @@ import profilesRouter from "./routes/profiles";
 import adminRouter from "./routes/admin";
 import trackRouter from "./routes/track";
 import popupRouter from "./routes/popup";
+import giftRouter from "./routes/gift";
 import BroadcastMessage from "./models/BroadcastMessage";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use("/api/profiles", profilesRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/track", trackRouter);
 app.use("/api/popup", popupRouter);
+app.use("/api/gift", giftRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });

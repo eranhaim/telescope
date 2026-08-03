@@ -1,13 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../api/client";
-import type { Profile } from "../api/client";
+
+interface GiftProfile {
+  _id: string;
+  name: string;
+  profileImageUrl?: string;
+  profileImageThumbUrl?: string;
+  telegramLink: string;
+}
 
 interface GiftPopupProps {
   onClose: () => void;
 }
 
 export default function GiftPopup({ onClose }: GiftPopupProps) {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<GiftProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [bgVisible, setBgVisible] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(false);
@@ -67,7 +74,7 @@ export default function GiftPopup({ onClose }: GiftPopupProps) {
     const t1 = setTimeout(() => setBgVisible(true), 50);
     const t2 = setTimeout(() => setHeaderVisible(true), 300);
 
-    api.getProfiles().then((data) => {
+    api.getGiftProfiles().then((data) => {
       setProfiles(data);
       setLoading(false);
       data.forEach((_, i) => {
@@ -87,7 +94,7 @@ export default function GiftPopup({ onClose }: GiftPopupProps) {
     };
   }, []);
 
-  function handleSelect(profile: Profile) {
+  function handleSelect(profile: GiftProfile) {
     const tg = window.Telegram?.WebApp;
     if (tg) {
       const url = profile.telegramLink;

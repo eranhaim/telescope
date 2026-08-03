@@ -134,6 +134,10 @@ export default function AdminPage() {
   const [expandedPoster, setExpandedPoster] = useState<string | null>(null);
   const posterFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  const [giftEnabled, setGiftEnabled] = useState(true);
+  const [giftEntries, setGiftEntries] = useState<{ profileId: string; customLink: string; name: string; profileImageThumbUrl: string }[]>([]);
+  const [giftSaving, setGiftSaving] = useState(false);
+
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
@@ -164,12 +168,13 @@ export default function AdminPage() {
   async function loadProfiles() {
     setLoading(true);
     try {
-      const [data, stats, hourly, popupData, bcHistory] = await Promise.all([
+      const [data, stats, hourly, popupData, bcHistory, giftData] = await Promise.all([
         api.getProfiles(),
         api.adminGetStats(),
         api.adminGetHourlyUsers(7),
         api.adminGetPopup(),
         api.adminBroadcastHistory(),
+        api.adminGetGift(),
       ]);
       setProfiles(data);
       setSiteOpens(stats.siteOpens);
@@ -178,6 +183,8 @@ export default function AdminPage() {
       setPopupIdleSeconds(popupData.idleSeconds);
       setPopupPosters(popupData.posters);
       setBroadcastHistory(bcHistory);
+      setGiftEnabled(giftData.enabled);
+      setGiftEntries(giftData.entries);
 
       const formatted = hourly.hourly.map((h) => {
         const d = new Date(h.time);
@@ -593,6 +600,108 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Gift Config */}
+        <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white">🎁 הגדרות מתנה</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-dark-text-secondary">{giftEnabled ? "פעיל" : "כבוי"}</span>
+              <button
+                className={`w-10 h-5 rounded-full relative transition ${giftEnabled ? "bg-accent" : "bg-dark-surface"}`}
+                onClick={() => setGiftEnabled(!giftEnabled)}
+              >
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${giftEnabled ? "left-5" : "left-0.5"}`} />
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs text-dark-text-secondary mb-3">בחר אילו דוגמניות יופיעו בפופאפ המתנה ואיזה לינק יפתח</p>
+
+          {/* Add profile */}
+          <div className="mb-3">
+            <select
+              className="w-full bg-dark-surface border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+              defaultValue=""
+              onChange={(e) => {
+                const profileId = e.target.value;
+                if (!profileId) return;
+                if (giftEntries.find((en) => en.profileId === profileId)) return;
+                const profile = profiles.find((p) => p._id === profileId);
+                if (!profile) return;
+                setGiftEntries((prev) => [...prev, {
+                  profileId,
+                  customLink: profile.telegramLink || "",
+                  name: profile.name,
+                  profileImageThumbUrl: profile.profileImageThumbUrl || profile.profileImageUrl || "",
+                }]);
+                e.target.value = "";
+              }}
+            >
+              <option value="">+ הוסף דוגמנית</option>
+              {profiles
+                .filter((p) => !giftEntries.find((en) => en.profileId === p._id))
+                .map((p) => (
+                  <option key={p._id} value={p._id}>{p.name}</option>
+                ))}
+            </select>
+          </div>
+
+          {/* Entries list */}
+          {giftEntries.length === 0 ? (
+            <p className="text-dark-text-secondary text-xs text-center py-4">לא נבחרו דוגמניות עדיין</p>
+          ) : (
+            <div className="flex flex-col gap-2 mb-3">
+              {giftEntries.map((entry) => (
+                <div key={entry.profileId} className="bg-dark-surface rounded-lg p-3 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {entry.profileImageThumbUrl ? (
+                        <img src={entry.profileImageThumbUrl} className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-dark-border flex items-center justify-center text-sm">👤</div>
+                      )}
+                      <span className="text-white text-sm">{entry.name}</span>
+                    </div>
+                    <button
+                      onClick={() => setGiftEntries((prev) => prev.filter((e) => e.profileId !== entry.profileId))}
+                      className="text-red-400 text-xs border-0 bg-transparent cursor-pointer"
+                    >
+                      הסר
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={entry.customLink}
+                    placeholder="לינק מותאם (ברירת מחדל: לינק הדוגמנית)"
+                    className="w-full bg-dark-bg border border-dark-border rounded px-2 py-1.5 text-white text-xs"
+                    onChange={(e) => setGiftEntries((prev) => prev.map((en) => en.profileId === entry.profileId ? { ...en, customLink: e.target.value } : en))}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            disabled={giftSaving}
+            onClick={async () => {
+              setGiftSaving(true);
+              try {
+                await api.adminSaveGift({
+                  enabled: giftEnabled,
+                  entries: giftEntries.map((e) => ({ profileId: e.profileId, customLink: e.customLink })),
+                });
+              } catch (err) {
+                console.error("Failed to save gift config:", err);
+              } finally {
+                setGiftSaving(false);
+              }
+            }}
+            className="w-full bg-accent hover:bg-accent/80 text-white py-2 rounded-lg text-sm font-medium transition border-0 cursor-pointer disabled:opacity-50"
+          >
+            {giftSaving ? "שומר..." : "שמור הגדרות מתנה"}
+          </button>
         </div>
 
         <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">

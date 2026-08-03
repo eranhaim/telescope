@@ -311,6 +311,22 @@ export const api = {
     }).catch(() => {});
   },
 
+  getGiftProfiles(): Promise<{ _id: string; name: string; profileImageUrl?: string; profileImageThumbUrl?: string; telegramLink: string }[]> {
+    return request("/gift");
+  },
+
+  adminGetGift(): Promise<{ enabled: boolean; entries: { profileId: string; customLink: string; name: string; profileImageThumbUrl: string }[] }> {
+    return request("/gift/admin", { headers: authHeaders() });
+  },
+
+  adminSaveGift(data: { enabled?: boolean; entries?: { profileId: string; customLink: string }[] }): Promise<void> {
+    return request("/gift/admin", {
+      method: "PUT",
+      body: JSON.stringify(data),
+      headers: authHeaders(),
+    });
+  },
+
   trackButtonClick(profileId: string, buttonType: string, buttonLabel?: string, linkType?: string): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const source = window.Telegram?.WebApp ? "telegram" : "browser";
