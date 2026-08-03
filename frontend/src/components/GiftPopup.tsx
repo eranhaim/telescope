@@ -144,8 +144,7 @@ export default function GiftPopup({ onClose }: GiftPopupProps) {
           <div className="text-center">
             <div className="text-4xl mb-2 mt-10">🎁</div>
             <h2 className="text-white font-bold text-3xl mb-1">
-              קבל תוכן{" "}
-              <span style={{
+              תוכן אקסקלוסיבי<br /><span style={{
                 background: "linear-gradient(90deg, #a855f7, #ec4899, #f59e0b, #a855f7)",
                 backgroundSize: "200% auto",
                 WebkitBackgroundClip: "text",
@@ -153,9 +152,9 @@ export default function GiftPopup({ onClose }: GiftPopupProps) {
                 backgroundClip: "text",
                 animation: "shineText 1.5s linear infinite",
                 filter: "drop-shadow(0 0 12px rgba(168,85,247,0.9))",
-              }}>אקסקלוסיבי</span>
+              }}>בחצי מחיר</span>
             </h2>
-            <p className="text-dark-text-secondary text-base">על מי תרצה לממש את ההטבה?</p>
+            <p className="text-dark-text-secondary text-base mt-3" dir="rtl">על מי תרצה לממש את ההטבה?</p>
           </div>
           <div className="w-8" />
         </div>
