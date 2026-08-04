@@ -107,6 +107,58 @@ function SortableProfileRow({
   );
 }
 
+function GiftEntryRow({
+  entry,
+  onRemove,
+  onLinkChange,
+}: {
+  entry: { profileId: string; customLink: string; name: string; profileImageThumbUrl: string };
+  onRemove: () => void;
+  onLinkChange: (val: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: entry.profileId });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="bg-dark-surface rounded-lg p-3 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing bg-transparent border-0 p-1 text-dark-text-secondary hover:text-white touch-none"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+            </svg>
+          </button>
+          {entry.profileImageThumbUrl ? (
+            <img src={entry.profileImageThumbUrl} className="w-8 h-8 rounded-full object-cover" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-dark-border flex items-center justify-center text-sm">👤</div>
+          )}
+          <span className="text-white text-sm">{entry.name}</span>
+        </div>
+        <button onClick={onRemove} className="text-red-400 text-xs border-0 bg-transparent cursor-pointer">הסר</button>
+      </div>
+      <input
+        type="text"
+        value={entry.customLink}
+        placeholder="לינק מותאם (ברירת מחדל: לינק הדוגמנית)"
+        className="w-full bg-dark-bg border border-dark-border rounded px-2 py-1.5 text-white text-xs"
+        onChange={(e) => onLinkChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const [authenticated, setAuthenticated] = useState(!!localStorage.getItem("admin_token"));
@@ -208,6 +260,14 @@ export default function AdminPage() {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  function handleGiftDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = giftEntries.findIndex((e) => e.profileId === active.id);
+    const newIndex = giftEntries.findIndex((e) => e.profileId === over.id);
+    setGiftEntries(arrayMove(giftEntries, oldIndex, newIndex));
   }
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -652,35 +712,20 @@ export default function AdminPage() {
           {giftEntries.length === 0 ? (
             <p className="text-dark-text-secondary text-xs text-center py-4">לא נבחרו דוגמניות עדיין</p>
           ) : (
-            <div className="flex flex-col gap-2 mb-3">
-              {giftEntries.map((entry) => (
-                <div key={entry.profileId} className="bg-dark-surface rounded-lg p-3 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {entry.profileImageThumbUrl ? (
-                        <img src={entry.profileImageThumbUrl} className="w-8 h-8 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-dark-border flex items-center justify-center text-sm">👤</div>
-                      )}
-                      <span className="text-white text-sm">{entry.name}</span>
-                    </div>
-                    <button
-                      onClick={() => setGiftEntries((prev) => prev.filter((e) => e.profileId !== entry.profileId))}
-                      className="text-red-400 text-xs border-0 bg-transparent cursor-pointer"
-                    >
-                      הסר
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={entry.customLink}
-                    placeholder="לינק מותאם (ברירת מחדל: לינק הדוגמנית)"
-                    className="w-full bg-dark-bg border border-dark-border rounded px-2 py-1.5 text-white text-xs"
-                    onChange={(e) => setGiftEntries((prev) => prev.map((en) => en.profileId === entry.profileId ? { ...en, customLink: e.target.value } : en))}
-                  />
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGiftDragEnd}>
+              <SortableContext items={giftEntries.map((e) => e.profileId)} strategy={verticalListSortingStrategy}>
+                <div className="flex flex-col gap-2 mb-3">
+                  {giftEntries.map((entry) => (
+                    <GiftEntryRow
+                      key={entry.profileId}
+                      entry={entry}
+                      onRemove={() => setGiftEntries((prev) => prev.filter((e) => e.profileId !== entry.profileId))}
+                      onLinkChange={(val) => setGiftEntries((prev) => prev.map((en) => en.profileId === entry.profileId ? { ...en, customLink: val } : en))}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
 
           <button
