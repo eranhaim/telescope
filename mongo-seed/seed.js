@@ -1,5 +1,13 @@
 db = db.getSiblingDB("telescope");
 
+// Safety check: refuse to seed production database
+const dbHost = db.getMongo().getHost();
+if (dbHost.includes("mongodb.net") || dbHost.includes("cluster")) {
+  print("ERROR: seed blocked — connected to production/Atlas DB: " + dbHost);
+  print("Use local MongoDB for seeding. Aborting.");
+  quit(1);
+}
+
 db.profiles.deleteMany({});
 db.telegramusers.deleteMany({});
 db.popupconfigs.deleteMany({});

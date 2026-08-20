@@ -56,7 +56,7 @@ const ProfileSchema = new Schema<IProfile>(
   {
     name: { type: String, required: true },
     handle: { type: String, required: true },
-    telegramLink: { type: String, required: true },
+    telegramLink: { type: String, default: "" },
     profileImage: { type: String, default: "" },
     profileImageThumb: { type: String, default: "" },
     media: [MediaItemSchema],

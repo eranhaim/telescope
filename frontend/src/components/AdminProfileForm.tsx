@@ -215,7 +215,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       </div>
       <div>
         <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">קישור טלגרם</label>
-        <input value={telegramLink} onChange={(e) => setTelegramLink(e.target.value)} required className={inputClass} placeholder="https://t.me/username" />
+        <input value={telegramLink} onChange={(e) => setTelegramLink(e.target.value)} className={inputClass} placeholder="https://t.me/username (אופציונלי)" />
       </div>
       <div>
         <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">תגיות (מופרדות בפסיק)</label>

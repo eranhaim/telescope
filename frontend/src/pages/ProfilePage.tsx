@@ -160,6 +160,7 @@ export default function ProfilePage() {
                     </p>
 
                     <div className="flex flex-wrap gap-3 mb-4 justify-center">
+                        {profile.telegramLink && (
                         <button
                             onClick={() => { api.trackButtonClick(profile._id, "message"); openTelegramChat(profile.telegramLink); }}
                             className="flex items-center gap-2 bg-dark-surface hover:bg-dark-border text-white px-5 py-2.5 rounded-full text-sm font-medium transition no-underline border border-dark-border cursor-pointer"
@@ -173,6 +174,7 @@ export default function ProfilePage() {
                             </svg>
                             {t("message")}
                         </button>
+                        )}
                         <button
                             onClick={async () => {
                                 api.trackButtonClick(profile._id, "share");
