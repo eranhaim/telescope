@@ -412,9 +412,9 @@ let broadcastStatus: { sending: boolean; sent: number; failed: number; total: nu
   sending: false, sent: 0, failed: 0, total: 0,
 };
 
-router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
+router.post("/broadcast", adminAuth, upload.single("image"), async (req: Request, res: Response) => {
   try {
-    const { message } = req.body;
+    const message = req.body.message;
     if (!message || typeof message !== "string" || !message.trim()) {
       res.status(400).json({ error: "Message is required" });
       return;
@@ -431,22 +431,50 @@ router.post("/broadcast", adminAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    let imageS3Key: string | undefined;
+    if (req.file) {
+      imageS3Key = await uploadToS3(req.file, "broadcast", "media");
+    }
+
     const users = await TelegramUser.find({}, { telegramId: 1 }).lean();
     broadcastStatus = { sending: true, sent: 0, failed: 0, total: users.length };
 
-    const broadcast = await Broadcast.create({ message: message.trim(), total: users.length, startedAt: new Date() });
+    const broadcast = await Broadcast.create({ message: message.trim(), imageS3Key, total: users.length, startedAt: new Date() });
     res.json({ started: true, total: users.length });
 
     (async () => {
       const messageDocs: { broadcastId: unknown; chatId: number; messageId: number; sentAt: Date }[] = [];
+      const hasImage = !!imageS3Key;
+
+      // If sending with image, get a signed URL once for all users
+      let imageUrl: string | undefined;
+      if (hasImage && imageS3Key) {
+        const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+        const { GetObjectCommand, S3Client } = await import("@aws-sdk/client-s3");
+        const s3 = new S3Client({ region: process.env.AWS_REGION || "eu-north-1" });
+        imageUrl = await getSignedUrl(s3, new GetObjectCommand({
+          Bucket: process.env.S3_BUCKET!,
+          Key: imageS3Key,
+        }), { expiresIn: 3600 });
+      }
+
       try {
         for (let i = 0; i < users.length; i++) {
           try {
-            const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: users[i].telegramId, text: message.trim() }),
-            });
+            let resp: globalThis.Response;
+            if (hasImage && imageUrl) {
+              resp = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: users[i].telegramId, photo: imageUrl, caption: message.trim() }),
+              });
+            } else {
+              resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: users[i].telegramId, text: message.trim() }),
+              });
+            }
             if (resp.ok) {
               broadcastStatus.sent++;
               const data = await resp.json().catch(() => null) as { result?: { message_id?: number } } | null;

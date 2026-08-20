@@ -281,11 +281,20 @@ export const api = {
     });
   },
 
-  adminBroadcast(message: string): Promise<{ started: boolean; total: number }> {
-    return request("/admin/broadcast", {
+  adminBroadcast(message: string, image?: File): Promise<{ started: boolean; total: number }> {
+    const form = new FormData();
+    form.append("message", message);
+    if (image) form.append("image", image);
+    return fetch(`${BASE}/admin/broadcast`, {
       method: "POST",
-      body: JSON.stringify({ message }),
-      headers: authHeaders(),
+      headers: { ...authHeaders() },
+      body: form,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Request failed: ${res.status}`);
+      }
+      return res.json();
     });
   },
 

@@ -191,6 +191,8 @@ export default function AdminPage() {
   const [giftSaving, setGiftSaving] = useState(false);
 
   const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastImage, setBroadcastImage] = useState<File | null>(null);
+  const [broadcastImagePreview, setBroadcastImagePreview] = useState<string | null>(null);
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
   const [broadcastHistory, setBroadcastHistory] = useState<{ _id: string; message: string; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]>([]);
@@ -759,6 +761,36 @@ export default function AdminPage() {
             dir="rtl"
             className="w-full bg-dark-surface text-white border border-dark-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-accent/50 transition placeholder-dark-text-secondary resize-none mb-3"
           />
+          <div className="mb-3">
+            {broadcastImagePreview ? (
+              <div className="relative inline-block">
+                <img src={broadcastImagePreview} alt="preview" className="w-24 h-24 object-cover rounded-lg border border-dark-border" />
+                <button
+                  type="button"
+                  onClick={() => { setBroadcastImage(null); setBroadcastImagePreview(null); }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs border-0 cursor-pointer"
+                >✕</button>
+              </div>
+            ) : (
+              <label className="inline-flex items-center gap-2 text-sm text-dark-text-secondary hover:text-white cursor-pointer transition">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setBroadcastImage(file);
+                      setBroadcastImagePreview(URL.createObjectURL(file));
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                הוסף תמונה
+              </label>
+            )}
+          </div>
           {broadcastResult && (
             <div className="bg-dark-surface border border-dark-border rounded-lg px-3 py-2 text-sm mb-3">
               <span className="text-green-400">נשלח: {broadcastResult.sent}</span>
@@ -778,8 +810,10 @@ export default function AdminPage() {
               setBroadcastSending(true);
               setBroadcastResult(null);
               try {
-                await api.adminBroadcast(broadcastMessage);
+                await api.adminBroadcast(broadcastMessage, broadcastImage || undefined);
                 setBroadcastMessage("");
+                setBroadcastImage(null);
+                setBroadcastImagePreview(null);
                 const poll = setInterval(async () => {
                   try {
                     const status = await api.adminBroadcastStatus();
