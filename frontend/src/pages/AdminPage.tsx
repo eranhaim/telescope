@@ -829,7 +829,7 @@ export default function AdminPage() {
                 }, 2000);
               } catch (err) {
                 console.error("Broadcast failed:", err);
-                alert("שליחת ההודעה נכשלה");
+                alert(err instanceof Error ? err.message : "שליחת ההודעה נכשלה");
                 setBroadcastSending(false);
               }
             }}

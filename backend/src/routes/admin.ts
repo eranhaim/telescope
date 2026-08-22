@@ -8,12 +8,18 @@ import Event from "../models/Event";
 import Broadcast from "../models/Broadcast";
 import BroadcastMessage from "../models/BroadcastMessage";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
-import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
+import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls, getSignedMediaUrl } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
 import { generateImageThumbnail } from "../services/imageThumbnail";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+// Telegram's own limits. Exceeding any of them makes every individual send fail,
+// so an over-limit broadcast is refused up front instead of failing once per user.
+const TELEGRAM_TEXT_MAX_CHARS = 4096;
+const TELEGRAM_CAPTION_MAX_CHARS = 1024;
+const TELEGRAM_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
 function inferLinkType(url: string): "telegram_group" | "onlyfans" | "other" {
   const lower = (url || "").toLowerCase();
@@ -420,6 +426,26 @@ router.post("/broadcast", adminAuth, upload.single("image"), async (req: Request
       return;
     }
 
+    if (req.file) {
+      if (req.file.size > TELEGRAM_PHOTO_MAX_BYTES) {
+        res.status(400).json({
+          error: `Image is ${(req.file.size / 1024 / 1024).toFixed(1)}MB. Telegram accepts at most ${TELEGRAM_PHOTO_MAX_BYTES / 1024 / 1024}MB.`,
+        });
+        return;
+      }
+      if (message.trim().length > TELEGRAM_CAPTION_MAX_CHARS) {
+        res.status(400).json({
+          error: `Message is ${message.trim().length} characters. Telegram allows ${TELEGRAM_CAPTION_MAX_CHARS} when an image is attached, ${TELEGRAM_TEXT_MAX_CHARS} without.`,
+        });
+        return;
+      }
+    } else if (message.trim().length > TELEGRAM_TEXT_MAX_CHARS) {
+      res.status(400).json({
+        error: `Message is ${message.trim().length} characters. Telegram allows ${TELEGRAM_TEXT_MAX_CHARS}.`,
+      });
+      return;
+    }
+
     if (broadcastStatus.sending) {
       res.status(409).json({ error: "Broadcast already in progress", ...broadcastStatus });
       return;
@@ -444,25 +470,15 @@ router.post("/broadcast", adminAuth, upload.single("image"), async (req: Request
 
     (async () => {
       const messageDocs: { broadcastId: unknown; chatId: number; messageId: number; sentAt: Date }[] = [];
-      const hasImage = !!imageS3Key;
-
-      // If sending with image, get a signed URL once for all users
-      let imageUrl: string | undefined;
-      if (hasImage && imageS3Key) {
-        const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
-        const { GetObjectCommand, S3Client } = await import("@aws-sdk/client-s3");
-        const s3 = new S3Client({ region: process.env.AWS_REGION || "eu-north-1" });
-        imageUrl = await getSignedUrl(s3, new GetObjectCommand({
-          Bucket: process.env.S3_BUCKET!,
-          Key: imageS3Key,
-        }), { expiresIn: 3600 });
-      }
 
       try {
+        // Signed once for the whole run — Telegram re-fetches the URL for every recipient.
+        const imageUrl = imageS3Key ? await getSignedMediaUrl(imageS3Key) : undefined;
+
         for (let i = 0; i < users.length; i++) {
           try {
             let resp: globalThis.Response;
-            if (hasImage && imageUrl) {
+            if (imageUrl) {
               resp = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
