@@ -130,9 +130,21 @@ router.post(
         return;
       }
       const { profileId, folder } = req.body;
+
+      // Resolve S3 folder from existing files so uploads go to the
+      // original directory, even if the DB _id changed after a restore.
+      let s3ProfileId = profileId || "temp";
+      if (profileId) {
+        const existing = await Profile.findById(profileId).select("profileImage").lean();
+        if (existing?.profileImage) {
+          const parts = existing.profileImage.split("/");
+          if (parts.length >= 2) s3ProfileId = parts[1];
+        }
+      }
+
       const key = await uploadToS3(
         req.file,
-        profileId || "temp",
+        s3ProfileId,
         folder === "avatar" ? "avatar" : "media"
       );
 
