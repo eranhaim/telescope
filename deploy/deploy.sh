@@ -80,6 +80,13 @@ fi
 # Scoped to this compose project - the box runs other unrelated stacks.
 docker compose build $SERVICE
 docker compose up -d $SERVICE
+
+# nginx resolves the backend container IP at startup. Refresh it whenever a
+# backend-only deployment recreates that container.
+if [ "$SERVICE" = "backend" ]; then
+  docker compose restart frontend
+fi
+
 docker compose ps
 
 # The health route is served through the frontend nginx container, so a 200
