@@ -51,6 +51,39 @@ chmod 600 "$final"
 sha256sum "$final" > "$final.sha256"
 chmod 600 "$final.sha256"
 
+export BACKUP_FILE="$name"
+export BACKUP_SHA256
+BACKUP_SHA256=$(sha256sum "$final" | awk '{print $1}')
+docker run --rm \
+  --env-file "$ENV_FILE" \
+  --env BACKUP_FILE \
+  --env BACKUP_SHA256 \
+  --volume "$BACKUP_DIR:/backup:ro" \
+  telescope-backend node -e '
+    const fs = require("fs");
+    const { S3Client, PutObjectCommand, HeadObjectCommand } = require("@aws-sdk/client-s3");
+    const bucket = process.env.S3_BUCKET_NAME;
+    const key = `backups/mongodb/${process.env.BACKUP_FILE}`;
+    const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+    (async () => {
+      await client.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: fs.createReadStream(`/backup/${process.env.BACKUP_FILE}`),
+        ContentType: "application/gzip",
+        Metadata: { sha256: process.env.BACKUP_SHA256 },
+      }));
+      const saved = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      if (saved.Metadata?.sha256 !== process.env.BACKUP_SHA256) {
+        throw new Error("S3 backup checksum metadata mismatch");
+      }
+      console.log(`offsite backup verified: s3://${bucket}/${key}`);
+    })().catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+  '
+
 shopt -s nullglob
 backups=("$BACKUP_DIR"/telescope-"$DATABASE"-*.archive.gz)
 if (( ${#backups[@]} > KEEP )); then
