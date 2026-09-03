@@ -54,6 +54,7 @@ export interface Profile {
   order: number;
   clicks: number;
   isVerified: boolean;
+  contentVersion: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -86,10 +87,10 @@ export const api = {
     });
   },
 
-  adminUpdateProfile(id: string, data: Partial<Profile>): Promise<Profile> {
+  adminUpdateProfile(id: string, data: Partial<Profile>, expectedContentVersion?: number): Promise<Profile> {
     return request(`/admin/profiles/${id}`, {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, expectedContentVersion }),
       headers: authHeaders(),
     });
   },

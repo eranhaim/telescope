@@ -27,6 +27,7 @@ export interface IProfile extends Document {
   order: number;
   clicks: number;
   isVerified: boolean;
+  contentVersion: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +66,7 @@ const ProfileSchema = new Schema<IProfile>(
     order: { type: Number, default: 0 },
     clicks: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false },
+    contentVersion: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

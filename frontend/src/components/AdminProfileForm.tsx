@@ -90,6 +90,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
   const avatarRef = useRef<HTMLInputElement>(null);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(profile?.media || []);
   const [linkButtons, setLinkButtons] = useState<LinkButton[]>(profile?.linkButtons || []);
+  const [contentVersion, setContentVersion] = useState(profile?.contentVersion || 0);
 
   const mediaSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -110,9 +111,16 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
 
     try {
       const cleaned = reordered.map(({ _id, url, thumbnailUrl, ...rest }) => rest);
-      await api.adminUpdateProfile(profile._id, { media: cleaned } as any);
+      const updatedProfile = await api.adminUpdateProfile(
+        profile._id,
+        { media: cleaned } as any,
+        contentVersion
+      );
+      setContentVersion(updatedProfile.contentVersion);
+      setMediaItems(updatedProfile.media);
     } catch (err) {
       console.error(err);
+      alert("הפרופיל השתנה במקום אחר. יש לפתוח אותו מחדש.");
     }
   }
 
@@ -131,7 +139,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
         linkButtons: linkButtons.map(({ _id, ...rest }) => rest),
       };
       if (profile) {
-        await api.adminUpdateProfile(profile._id, data);
+        await api.adminUpdateProfile(profile._id, data, contentVersion);
       } else {
         await api.adminCreateProfile(data);
       }
@@ -152,7 +160,12 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       const { key, thumbnail } = await api.adminUploadFile(file, profile._id, "avatar");
       const update: Record<string, string> = { profileImage: key };
       if (thumbnail) update.profileImageThumb = thumbnail;
-      await api.adminUpdateProfile(profile._id, update as any);
+      const updatedProfile = await api.adminUpdateProfile(
+        profile._id,
+        update as any,
+        contentVersion
+      );
+      setContentVersion(updatedProfile.contentVersion);
     } catch (err) {
       console.error(err);
       alert("העלאת תמונת פרופיל נכשלה");
@@ -175,7 +188,12 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
         newItems.push(item);
       }
       const allMedia = [...mediaItems.map(({ _id, url, thumbnailUrl, ...rest }) => rest), ...newItems];
-      const updatedProfile = await api.adminUpdateProfile(profile._id, { media: allMedia } as any);
+      const updatedProfile = await api.adminUpdateProfile(
+        profile._id,
+        { media: allMedia } as any,
+        contentVersion
+      );
+      setContentVersion(updatedProfile.contentVersion);
       setMediaItems(updatedProfile.media);
     } catch (err) {
       console.error(err);
@@ -188,12 +206,17 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
   async function handleDeleteMedia(s3Key: string) {
     if (!profile || !confirm("למחוק את פריט המדיה הזה?")) return;
     try {
-      await api.adminDeleteMedia(s3Key);
       const updated = mediaItems
         .filter((m) => m.s3Key !== s3Key)
         .map(({ _id, url, thumbnailUrl, ...rest }) => rest);
-      setMediaItems(updated as any);
-      await api.adminUpdateProfile(profile._id, { media: updated } as any);
+      const updatedProfile = await api.adminUpdateProfile(
+        profile._id,
+        { media: updated } as any,
+        contentVersion
+      );
+      await api.adminDeleteMedia(s3Key);
+      setContentVersion(updatedProfile.contentVersion);
+      setMediaItems(updatedProfile.media);
     } catch (err) {
       console.error(err);
     }

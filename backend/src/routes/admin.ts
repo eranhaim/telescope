@@ -57,8 +57,11 @@ async function saveProfileRevision(
   });
 }
 
-function inferLinkType(url: string): "telegram_group" | "onlyfans" | "other" {
+function inferLinkType(url: string, label = ""): "telegram_group" | "onlyfans" | "other" {
   const lower = (url || "").toLowerCase();
+  const lowerLabel = label.toLowerCase();
+  if (lowerLabel.includes("telegram") || lowerLabel.includes("טלגרם")) return "telegram_group";
+  if (lowerLabel.includes("onlyfans") || lowerLabel.includes("only fans")) return "onlyfans";
   if (lower.includes("t.me") || lower.includes("telegram")) return "telegram_group";
   if (lower.includes("onlyfans")) return "onlyfans";
   return "other";
@@ -93,7 +96,10 @@ router.post("/profiles", adminAuth, async (req: Request, res: Response) => {
         res.status(400).json({ error: "linkButtons must be an array" });
         return;
       }
-      data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
+      data.linkButtons = data.linkButtons.map((btn: { url: string; label?: string }) => ({
+        ...btn,
+        linkType: inferLinkType(btn.url, btn.label),
+      }));
     }
     const profile = await Profile.create(data);
     await saveProfileRevision(profile, "create", Object.keys(data));
@@ -111,8 +117,22 @@ router.put("/profiles/reorder", adminAuth, async (req: Request, res: Response) =
       res.status(400).json({ error: "Invalid order data" });
       return;
     }
+    const existing = await Profile.find({ _id: { $in: order.map((item) => item.id) } });
+    await ProfileRevision.insertMany(
+      existing.map((profile) => ({
+        profileId: profile._id,
+        action: "update",
+        changedFields: ["order"],
+        snapshot: profile.toObject(),
+      }))
+    );
     await Promise.all(
-      order.map((item) => Profile.findByIdAndUpdate(item.id, { order: item.order }))
+      order.map((item) =>
+        Profile.findByIdAndUpdate(item.id, {
+          $set: { order: item.order },
+          $inc: { contentVersion: 1 },
+        })
+      )
     );
     res.json({ success: true });
   } catch (err) {
@@ -129,6 +149,16 @@ router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    const expectedContentVersion = req.body.expectedContentVersion;
+    const currentContentVersion = existing.contentVersion ?? 0;
+    if (
+      expectedContentVersion !== undefined &&
+      (!Number.isInteger(expectedContentVersion) || expectedContentVersion !== currentContentVersion)
+    ) {
+      res.status(409).json({ error: "Profile changed since it was opened. Reload and try again." });
+      return;
+    }
+
     const data = pickProfileData(req.body);
     if (Object.keys(data).length === 0) {
       res.status(400).json({ error: "No valid profile fields provided" });
@@ -140,16 +170,21 @@ router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
         res.status(400).json({ error: "linkButtons must be an array" });
         return;
       }
-      data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
+      data.linkButtons = data.linkButtons.map((btn: { url: string; label?: string }) => ({
+        ...btn,
+        linkType: inferLinkType(btn.url, btn.label),
+      }));
     }
     await saveProfileRevision(existing, "update", Object.keys(data));
     const profile = await Profile.findByIdAndUpdate(
-      req.params.id,
-      { $set: data },
+      expectedContentVersion === undefined
+        ? { _id: req.params.id }
+        : { _id: req.params.id, contentVersion: expectedContentVersion },
+      { $set: data, $inc: { contentVersion: 1 } },
       { new: true, runValidators: true }
     );
     if (!profile) {
-      res.status(404).json({ error: "Profile not found" });
+      res.status(409).json({ error: "Profile changed during save. Reload and try again." });
       return;
     }
     const signed = await signProfileUrls(profile);
