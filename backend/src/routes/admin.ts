@@ -7,6 +7,7 @@ import TelegramUser from "../models/TelegramUser";
 import Event from "../models/Event";
 import Broadcast from "../models/Broadcast";
 import BroadcastMessage from "../models/BroadcastMessage";
+import ProfileRevision from "../models/ProfileRevision";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls, getSignedMediaUrl } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
@@ -20,6 +21,41 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 const TELEGRAM_TEXT_MAX_CHARS = 4096;
 const TELEGRAM_CAPTION_MAX_CHARS = 1024;
 const TELEGRAM_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+
+const PROFILE_MUTABLE_FIELDS = [
+  "name",
+  "handle",
+  "telegramLink",
+  "profileImage",
+  "profileImageThumb",
+  "media",
+  "linkButtons",
+  "tags",
+  "order",
+  "clicks",
+  "isVerified",
+] as const;
+
+function pickProfileData(body: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    PROFILE_MUTABLE_FIELDS
+      .filter((field) => Object.prototype.hasOwnProperty.call(body, field))
+      .map((field) => [field, body[field]])
+  );
+}
+
+async function saveProfileRevision(
+  profile: InstanceType<typeof Profile>,
+  action: "create" | "update" | "delete",
+  changedFields: string[]
+): Promise<void> {
+  await ProfileRevision.create({
+    profileId: profile._id,
+    action,
+    changedFields,
+    snapshot: profile.toObject(),
+  });
+}
 
 function inferLinkType(url: string): "telegram_group" | "onlyfans" | "other" {
   const lower = (url || "").toLowerCase();
@@ -50,10 +86,17 @@ router.post("/login", (req: Request, res: Response) => {
 
 router.post("/profiles", adminAuth, async (req: Request, res: Response) => {
   try {
-    const data = { ...req.body };
-    if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink);
-    if (data.linkButtons) data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
+    const data = pickProfileData(req.body);
+    if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink as string);
+    if (data.linkButtons) {
+      if (!Array.isArray(data.linkButtons)) {
+        res.status(400).json({ error: "linkButtons must be an array" });
+        return;
+      }
+      data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
+    }
     const profile = await Profile.create(data);
+    await saveProfileRevision(profile, "create", Object.keys(data));
     res.status(201).json(profile);
   } catch (err) {
     console.error("POST /api/admin/profiles error:", err);
@@ -80,10 +123,31 @@ router.put("/profiles/reorder", adminAuth, async (req: Request, res: Response) =
 
 router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
   try {
-    const data = { ...req.body };
-    if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink);
-    if (data.linkButtons) data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
-    const profile = await Profile.findByIdAndUpdate(req.params.id, data, { new: true });
+    const existing = await Profile.findById(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: "Profile not found" });
+      return;
+    }
+
+    const data = pickProfileData(req.body);
+    if (Object.keys(data).length === 0) {
+      res.status(400).json({ error: "No valid profile fields provided" });
+      return;
+    }
+    if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink as string);
+    if (data.linkButtons) {
+      if (!Array.isArray(data.linkButtons)) {
+        res.status(400).json({ error: "linkButtons must be an array" });
+        return;
+      }
+      data.linkButtons = data.linkButtons.map((btn: { url: string }) => ({ ...btn, linkType: inferLinkType(btn.url) }));
+    }
+    await saveProfileRevision(existing, "update", Object.keys(data));
+    const profile = await Profile.findByIdAndUpdate(
+      req.params.id,
+      { $set: data },
+      { new: true, runValidators: true }
+    );
     if (!profile) {
       res.status(404).json({ error: "Profile not found" });
       return;
@@ -104,6 +168,7 @@ router.delete("/profiles/:id", adminAuth, async (req: Request, res: Response) =>
       return;
     }
 
+    await saveProfileRevision(profile, "delete", []);
     const keysToDelete: string[] = [];
     if (profile.profileImage) keysToDelete.push(profile.profileImage);
     for (const m of profile.media) {

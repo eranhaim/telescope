@@ -153,7 +153,6 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       const update: Record<string, string> = { profileImage: key };
       if (thumbnail) update.profileImageThumb = thumbnail;
       await api.adminUpdateProfile(profile._id, update as any);
-      onSaved();
     } catch (err) {
       console.error(err);
       alert("העלאת תמונת פרופיל נכשלה");
@@ -176,8 +175,8 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
         newItems.push(item);
       }
       const allMedia = [...mediaItems.map(({ _id, url, thumbnailUrl, ...rest }) => rest), ...newItems];
-      await api.adminUpdateProfile(profile._id, { media: allMedia } as any);
-      onSaved();
+      const updatedProfile = await api.adminUpdateProfile(profile._id, { media: allMedia } as any);
+      setMediaItems(updatedProfile.media);
     } catch (err) {
       console.error(err);
       alert("העלאת מדיה נכשלה");
