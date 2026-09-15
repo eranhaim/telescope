@@ -2,9 +2,10 @@
 
 set -euo pipefail
 
-APP_DIR="${TELESCOPE_DIR:-/home/ubuntu/telescope}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="${TELESCOPE_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 ENV_FILE="${TELESCOPE_ENV:-$APP_DIR/.env}"
-BACKUP_DIR="${TELESCOPE_BACKUP_DIR:-/home/ubuntu/telescope-backups}"
+BACKUP_DIR="${TELESCOPE_BACKUP_DIR:-$(dirname "$APP_DIR")/telescope-backups}"
 DATABASE="${MONGODB_DATABASE:-test}"
 KEEP="${TELESCOPE_BACKUPS_TO_KEEP:-30}"
 
