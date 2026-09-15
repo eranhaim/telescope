@@ -8,11 +8,31 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 
+const STORAGE_ENDPOINT =
+  process.env.S3_ENDPOINT || process.env.VULTR_OBJECT_STORAGE_ENDPOINT;
+const STORAGE_REGION =
+  process.env.S3_REGION ||
+  process.env.VULTR_OBJECT_STORAGE_REGION ||
+  process.env.AWS_REGION ||
+  "us-east-1";
+const STORAGE_ACCESS_KEY =
+  process.env.S3_ACCESS_KEY_ID ||
+  process.env.VULTR_ACCESS_KEY_ID ||
+  process.env.AWS_ACCESS_KEY_ID ||
+  "";
+const STORAGE_SECRET_KEY =
+  process.env.S3_SECRET_ACCESS_KEY ||
+  process.env.VULTR_SECRET_ACCESS_KEY ||
+  process.env.AWS_SECRET_ACCESS_KEY ||
+  "";
+
 const s3 = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
+  region: STORAGE_REGION,
+  ...(STORAGE_ENDPOINT ? { endpoint: STORAGE_ENDPOINT } : {}),
+  forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+    accessKeyId: STORAGE_ACCESS_KEY,
+    secretAccessKey: STORAGE_SECRET_KEY,
   },
 });
 

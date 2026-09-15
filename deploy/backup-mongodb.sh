@@ -64,7 +64,16 @@ docker run --rm \
     const { S3Client, PutObjectCommand, HeadObjectCommand } = require("@aws-sdk/client-s3");
     const bucket = process.env.S3_BUCKET_NAME;
     const key = `backups/mongodb/${process.env.BACKUP_FILE}`;
-    const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+    const endpoint = process.env.S3_ENDPOINT || process.env.VULTR_OBJECT_STORAGE_ENDPOINT;
+    const region = process.env.S3_REGION || process.env.VULTR_OBJECT_STORAGE_REGION || process.env.AWS_REGION || "us-east-1";
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.VULTR_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.VULTR_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+    const client = new S3Client({
+      region,
+      ...(endpoint ? { endpoint } : {}),
+      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+      credentials: { accessKeyId, secretAccessKey },
+    });
     (async () => {
       await client.send(new PutObjectCommand({
         Bucket: bucket,
