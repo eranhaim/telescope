@@ -120,18 +120,22 @@ async function start() {
       }
     }
 
-    bot.sendMessage(msg.chat.id, strings.text, {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: strings.button,
-              web_app: { url: WEBAPP_URL! },
-            },
+    try {
+      await bot.sendMessage(msg.chat.id, strings.text, {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: strings.button,
+                web_app: { url: WEBAPP_URL! },
+              },
+            ],
           ],
-        ],
-      },
-    });
+        },
+      });
+    } catch (err) {
+      console.error("Failed to respond to /start:", err instanceof Error ? err.message : err);
+    }
   });
 
   bot.on("polling_error", (err) => {
