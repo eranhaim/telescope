@@ -24,9 +24,10 @@ export interface MediaItem {
   _id: string;
   type: "image" | "video";
   s3Key: string;
-  url: string;
+  url?: string;
   thumbnail?: string;
   thumbnailUrl?: string;
+  available?: boolean;
   order: number;
   clicks: number;
 }
