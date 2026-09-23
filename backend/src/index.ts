@@ -8,6 +8,7 @@ import trackRouter from "./routes/track";
 import popupRouter from "./routes/popup";
 import giftRouter from "./routes/gift";
 import BroadcastMessage from "./models/BroadcastMessage";
+import { getStorageConfiguration } from "./services/s3";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,7 +23,7 @@ app.use("/api/popup", popupRouter);
 app.use("/api/gift", giftRouter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", storage: getStorageConfiguration() });
 });
 
 const BROADCAST_TTL_MS = 24 * 60 * 60 * 1000;

@@ -125,7 +125,10 @@ export const api = {
       headers: authHeaders(),
       body: formData,
     });
-    if (!res.ok) throw new Error("Upload failed");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Upload failed (${res.status})`);
+    }
     return res.json();
   },
 
@@ -168,6 +171,20 @@ export const api = {
     const a = document.createElement("a");
     a.href = url;
     a.download = "telegram_users.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  async adminDownloadCsv(path: "/admin/users/export.csv" | "/admin/activity/export.csv", filename: string): Promise<void> {
+    const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Export failed");
+    }
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   },

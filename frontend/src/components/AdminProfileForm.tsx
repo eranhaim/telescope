@@ -168,7 +168,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       setContentVersion(updatedProfile.contentVersion);
     } catch (err) {
       console.error(err);
-      alert("העלאת תמונת פרופיל נכשלה");
+      alert(err instanceof Error ? err.message : "העלאת תמונת פרופיל נכשלה");
     } finally {
       setAvatarUploading(false);
     }
@@ -197,7 +197,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       setMediaItems(updatedProfile.media);
     } catch (err) {
       console.error(err);
-      alert("העלאת מדיה נכשלה");
+      alert(err instanceof Error ? err.message : "העלאת מדיה נכשלה");
     } finally {
       setUploading(false);
     }

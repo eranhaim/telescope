@@ -13,6 +13,8 @@ export default function ExplorePage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeTab, setActiveTab] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [giftOpen, setGiftOpen] = useState(false);
 
   const tabs = [
@@ -24,12 +26,16 @@ export default function ExplorePage() {
 
   useEffect(() => {
     setLoading(true);
+    setLoadError("");
     api
       .getProfiles(activeTab || undefined)
       .then(setProfiles)
-      .catch(console.error)
+      .catch((error) => {
+        console.error(error);
+        setLoadError("לא ניתן לטעון את הפרופילים כרגע. נסו שוב.");
+      })
       .finally(() => setLoading(false));
-  }, [activeTab]);
+  }, [activeTab, reloadKey]);
 
   return (
     <div className="flex flex-col min-h-screen bg-dark-bg">
@@ -102,6 +108,16 @@ export default function ExplorePage() {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-20 text-dark-text-secondary">
+            <p className="text-sm text-center">{loadError}</p>
+            <button
+              onClick={() => setReloadKey((key) => key + 1)}
+              className="mt-4 rounded-lg border border-dark-border bg-dark-surface px-4 py-2 text-sm text-white"
+            >
+              נסו שוב
+            </button>
           </div>
         ) : profiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-dark-text-secondary">

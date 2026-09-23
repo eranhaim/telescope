@@ -394,16 +394,20 @@ export default function AdminPage() {
         <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-white">משתמשים חדשים לפי שעה (7 ימים)</h3>
-            <button
-              onClick={() => api.adminExportUsers().catch(console.error)}
-              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition border-0 cursor-pointer flex items-center gap-1.5"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-                <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-              </svg>
-              Export
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => api.adminDownloadCsv("/admin/users/export.csv", "telegram_users.csv").catch(console.error)}
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition border-0 cursor-pointer"
+              >
+                CSV משתמשים
+              </button>
+              <button
+                onClick={() => api.adminDownloadCsv("/admin/activity/export.csv", "activity_audit.csv").catch(console.error)}
+                className="bg-dark-surface hover:bg-dark-border text-white px-3 py-1.5 rounded-lg text-xs font-medium transition border border-dark-border cursor-pointer"
+              >
+                יומן פעילות CSV
+              </button>
+            </div>
           </div>
           {hourlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>

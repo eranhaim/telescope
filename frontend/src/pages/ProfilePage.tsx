@@ -65,6 +65,8 @@ export default function ProfilePage() {
     const { t } = useLocale();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+    const [reloadKey, setReloadKey] = useState(0);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
     const [copied, setCopied] = useState(false);
 
@@ -74,11 +76,15 @@ export default function ProfilePage() {
     useEffect(() => {
         if (!id) return;
         setLoading(true);
+        setLoadError("");
         api.getProfile(id)
             .then(setProfile)
-            .catch(console.error)
+            .catch((error) => {
+                console.error(error);
+                setLoadError("לא ניתן לטעון את הפרופיל כרגע. נסו שוב.");
+            })
             .finally(() => setLoading(false));
-    }, [id]);
+    }, [id, reloadKey]);
 
     if (loading) {
         return (
@@ -91,10 +97,18 @@ export default function ProfilePage() {
     if (!profile) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-dark-bg text-dark-text-secondary">
-                <p>{t("profileNotFound")}</p>
+                <p>{loadError || t("profileNotFound")}</p>
+                {loadError && (
+                    <button
+                        onClick={() => setReloadKey((key) => key + 1)}
+                        className="mt-4 text-accent underline bg-transparent border-0 cursor-pointer"
+                    >
+                        נסו שוב
+                    </button>
+                )}
                 <button
                     onClick={goBack}
-                    className="mt-4 text-accent underline bg-transparent border-0 cursor-pointer"
+                    className="mt-2 text-accent underline bg-transparent border-0 cursor-pointer"
                 >
                     {t("back")}
                 </button>

@@ -38,16 +38,35 @@ const s3 = new S3Client({
 
 const BUCKET = process.env.S3_BUCKET_NAME || "telescope-media";
 
-const URL_EXPIRY = 86400; // 24 hours
-const CACHE_TTL = 82800_000; // 23 hours in ms (refresh before expiry)
+// Keep public playback URLs short lived. This avoids a user opening a stale
+// 24-hour link after a mobile app has been suspended, while still keeping S3
+// signing off the hot path for every render.
+const URL_EXPIRY = 60 * 60; // 1 hour
+const CACHE_TTL = 50 * 60_000; // refresh before expiry
 
 const urlCache = new Map<string, { url: string; expiresAt: number }>();
+
+export function getStorageConfiguration() {
+  const missing: string[] = [];
+  if (!STORAGE_ACCESS_KEY) missing.push("access key");
+  if (!STORAGE_SECRET_KEY) missing.push("secret key");
+  if (!BUCKET) missing.push("bucket");
+  return { configured: missing.length === 0, provider: STORAGE_ENDPOINT ? "S3-compatible" : "AWS S3", missing };
+}
+
+function assertStorageConfigured(): void {
+  const status = getStorageConfiguration();
+  if (!status.configured) {
+    throw new Error(`Media storage is not configured (missing ${status.missing.join(", ")})`);
+  }
+}
 
 export async function uploadToS3(
   file: Express.Multer.File,
   profileId: string,
   folder: "media" | "avatar" = "media"
 ): Promise<string> {
+  assertStorageConfigured();
   const ext = path.extname(file.originalname);
   const key =
     folder === "avatar"
@@ -72,6 +91,7 @@ export async function uploadBufferToS3(
   key: string,
   contentType: string
 ): Promise<string> {
+  assertStorageConfigured();
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET,
@@ -85,6 +105,7 @@ export async function uploadBufferToS3(
 }
 
 export async function deleteFromS3(key: string): Promise<void> {
+  assertStorageConfigured();
   await s3.send(
     new DeleteObjectCommand({
       Bucket: BUCKET,
@@ -96,6 +117,7 @@ export async function deleteFromS3(key: string): Promise<void> {
 
 export async function getSignedMediaUrl(key: string): Promise<string> {
   if (!key) return "";
+  assertStorageConfigured();
 
   const cached = urlCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
@@ -113,18 +135,21 @@ export async function signProfileUrls(profile: Record<string, any>) {
   const obj = typeof profile.toObject === "function" ? profile.toObject() : { ...profile };
 
   if (obj.profileImage) {
-    obj.profileImageUrl = await getSignedMediaUrl(obj.profileImage);
+    obj.profileImageUrl = await getSignedMediaUrl(obj.profileImage).catch((error) => {
+      console.error("Unable to sign profile image:", error instanceof Error ? error.message : error);
+      return undefined;
+    });
   }
   if (obj.profileImageThumb) {
-    obj.profileImageThumbUrl = await getSignedMediaUrl(obj.profileImageThumb);
+    obj.profileImageThumbUrl = await getSignedMediaUrl(obj.profileImageThumb).catch(() => undefined);
   }
 
   if (obj.media && Array.isArray(obj.media)) {
     obj.media = await Promise.all(
       obj.media.map(async (m: any) => ({
         ...m,
-        url: await getSignedMediaUrl(m.s3Key),
-        thumbnailUrl: m.thumbnail ? await getSignedMediaUrl(m.thumbnail) : undefined,
+        url: await getSignedMediaUrl(m.s3Key).catch(() => undefined),
+        thumbnailUrl: m.thumbnail ? await getSignedMediaUrl(m.thumbnail).catch(() => undefined) : undefined,
       }))
     );
   }

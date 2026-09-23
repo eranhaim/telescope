@@ -77,6 +77,11 @@ function normalizeTelegramLink(link: string): string {
   return `https://t.me/${trimmed}`;
 }
 
+function csvValue(value: unknown): string {
+  const text = value === null || value === undefined ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 router.post("/login", (req: Request, res: Response) => {
   const { password } = req.body;
   if (password !== process.env.ADMIN_PASSWORD) {
@@ -270,7 +275,13 @@ router.post(
       res.json({ key, thumbnail });
     } catch (err) {
       console.error("POST /api/admin/upload error:", err);
-      res.status(500).json({ error: "Upload failed" });
+      const message = err instanceof Error ? err.message : "";
+      const storageUnavailable = message.startsWith("Media storage is not configured");
+      res.status(storageUnavailable ? 503 : 500).json({
+        error: storageUnavailable
+          ? "Media storage is unavailable. Configure the object-storage credentials and try again."
+          : "Upload failed. Please try again.",
+      });
     }
   }
 );
@@ -282,7 +293,7 @@ router.delete("/media/:key(*)", adminAuth, async (req: Request, res: Response) =
     res.json({ success: true });
   } catch (err) {
     console.error("DELETE /api/admin/media error:", err);
-    res.status(500).json({ error: "Delete failed" });
+    res.status(500).json({ error: "Delete failed. The media record was not changed." });
   }
 });
 
@@ -523,6 +534,70 @@ router.get("/users/export", adminAuth, async (_req: Request, res: Response) => {
   } catch (err) {
     console.error("GET /api/admin/users/export error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/users/export.csv", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const users = await TelegramUser.find().sort({ lastSeen: -1 }).lean();
+    const rows = [
+      ["Telegram ID", "First Name", "Last Name", "Username", "Language", "First Seen", "Last Seen", "Start Count", "App Opens", "Source"],
+      ...users.map((user) => [
+        user.telegramId,
+        user.firstName || "",
+        user.lastName || "",
+        user.username ? `@${user.username}` : "",
+        user.languageCode || "",
+        user.firstSeen ? new Date(user.firstSeen).toISOString() : "",
+        user.lastSeen ? new Date(user.lastSeen).toISOString() : "",
+        user.startCount || 0,
+        user.appOpens || 0,
+        (user as Record<string, unknown>).source || "direct",
+      ]),
+    ];
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=telegram_users.csv");
+    res.send(`\uFEFF${rows.map((row) => row.map(csvValue).join(",")).join("\n")}\n`);
+  } catch (err) {
+    console.error("GET /api/admin/users/export.csv error:", err);
+    res.status(500).json({ error: "Could not create user CSV export" });
+  }
+});
+
+router.get("/activity/export.csv", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const [events, revisions] = await Promise.all([
+      Event.find().sort({ at: -1 }).limit(10000).lean(),
+      ProfileRevision.find().sort({ createdAt: -1 }).limit(10000).lean(),
+    ]);
+    const rows: unknown[][] = [["Timestamp", "Category", "Action", "Profile ID", "Telegram User ID", "Details"]];
+    for (const event of events) {
+      rows.push([
+        event.at ? new Date(event.at).toISOString() : "",
+        "visitor",
+        event.type,
+        event.profileId || "",
+        event.telegramUserId || "",
+        JSON.stringify({ buttonType: event.buttonType, buttonLabel: event.buttonLabel, linkType: event.linkType, source: event.source }),
+      ]);
+    }
+    for (const revision of revisions) {
+      rows.push([
+        revision.createdAt ? new Date(revision.createdAt).toISOString() : "",
+        "admin",
+        `profile_${revision.action}`,
+        revision.profileId.toString(),
+        "",
+        JSON.stringify({ changedFields: revision.changedFields }),
+      ]);
+    }
+    rows.sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=activity_audit.csv");
+    res.send(`\uFEFF${rows.map((row) => row.map(csvValue).join(",")).join("\n")}\n`);
+  } catch (err) {
+    console.error("GET /api/admin/activity/export.csv error:", err);
+    res.status(500).json({ error: "Could not create activity CSV export" });
   }
 });
 
