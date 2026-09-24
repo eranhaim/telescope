@@ -3,7 +3,6 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
-  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
@@ -55,7 +54,6 @@ const URL_EXPIRY = 60 * 60; // 1 hour
 const CACHE_TTL = 50 * 60_000; // refresh before expiry
 
 const urlCache = new Map<string, { url: string; expiresAt: number }>();
-const objectPresenceCache = new Map<string, { exists: boolean; expiresAt: number }>();
 
 export function getStorageConfiguration() {
   const missing: string[] = [];
@@ -135,21 +133,9 @@ export async function getSignedMediaUrl(key: string): Promise<string> {
     return cached.url;
   }
 
-  const presence = objectPresenceCache.get(key);
-  if (presence && presence.expiresAt > Date.now() && !presence.exists) {
-    return "";
-  }
-
-  try {
-    await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
-    objectPresenceCache.set(key, { exists: true, expiresAt: Date.now() + CACHE_TTL });
-  } catch (error) {
-    const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
-    if (status !== 404) throw error;
-    objectPresenceCache.set(key, { exists: false, expiresAt: Date.now() + CACHE_TTL });
-    return "";
-  }
-
+  // The production IAM role may read objects through signed GET URLs but
+  // cannot preflight them with HeadObject. Signing does not require that
+  // extra permission; the browser performs the actual media request.
   const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
   const url = await getSignedUrl(s3, command, { expiresIn: URL_EXPIRY });
 
