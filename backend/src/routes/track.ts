@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import mongoose from "mongoose";
 import Profile from "../models/Profile";
 import SiteStats from "../models/SiteStats";
 import TelegramUser from "../models/TelegramUser";
@@ -103,6 +104,10 @@ router.post("/media/:profileId/:mediaId", async (req: Request, res: Response) =>
   try {
     const { profileId } = req.params;
     const { mediaId } = req.params;
+    if (!mongoose.isValidObjectId(profileId) || !mongoose.isValidObjectId(mediaId)) {
+      res.status(400).json({ error: "Invalid media reference" });
+      return;
+    }
 
     await Profile.findOneAndUpdate(
       { _id: profileId, "media._id": mediaId },
