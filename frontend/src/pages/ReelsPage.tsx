@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { MediaItem, Profile } from "../api/client";
 import BottomAppBar from "../components/BottomAppBar";
+import ReelVideo from "../components/ReelVideo";
+import type { AudioMode } from "../components/ReelVideo";
 
 interface Reel {
   profile: Profile;
@@ -15,6 +17,7 @@ export default function ReelsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [audioMode, setAudioMode] = useState<AudioMode>("unknown");
 
   useEffect(() => {
     api
@@ -41,6 +44,10 @@ export default function ReelsPage() {
     setLoadError("");
     setReloadKey((key) => key + 1);
   }
+
+  const updateAudioMode = useCallback((mode: AudioMode) => {
+    setAudioMode(mode);
+  }, []);
 
   if (loading || loadError || reels.length === 0) {
     return (
@@ -78,20 +85,14 @@ export default function ReelsPage() {
           aria-label={`Reel ${index + 1} by ${profile.name}`}
         >
           {media.url ? (
-            <video
+            <ReelVideo
               src={media.url}
               poster={media.thumbnailUrl}
-              controls
-              muted
-              playsInline
-              loop
-              autoPlay={index === 0}
-              preload={index === 0 ? "auto" : "metadata"}
+              isInitiallyActive={index === 0}
+              audioMode={audioMode}
+              onAudioModeChange={updateAudioMode}
               onPlay={() => api.trackMediaClick(profile._id, media._id)}
-              className="h-full w-full object-contain"
-            >
-              Your browser does not support video playback.
-            </video>
+            />
           ) : (
             <div className="flex h-full items-center justify-center px-8 text-center text-dark-text-secondary">
               This reel is unavailable.

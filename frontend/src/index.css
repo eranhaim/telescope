@@ -36,6 +36,54 @@ body {
   width: 0;
 }
 
+.reel-timeline {
+  --reel-progress: 0%;
+  --reel-buffered: 0%;
+}
+
+.reel-timeline::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    rgb(255 255 255 / 92%) 0 var(--reel-progress),
+    rgb(255 255 255 / 48%) var(--reel-progress) var(--reel-buffered),
+    rgb(255 255 255 / 18%) var(--reel-buffered) 100%
+  );
+}
+
+.reel-timeline::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 2px solid rgb(0 0 0 / 35%);
+  border-radius: 999px;
+  appearance: none;
+  background: white;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+}
+
+.reel-timeline::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 18%);
+}
+
+.reel-timeline::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+}
+
+.reel-timeline::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgb(0 0 0 / 35%);
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+}
+
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   50% { background-position: 0% 0; }
