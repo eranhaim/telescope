@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { api } from "../api/client";
-import type { Profile, LinkButton, MediaItem } from "../api/client";
+import type { Profile, LinkButton, MediaItem, StoredMedia } from "../api/client";
 import {
   DndContext,
   closestCenter,
@@ -86,7 +86,8 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const postFileRef = useRef<HTMLInputElement>(null);
+  const reelFileRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(profile?.media || []);
   const [linkButtons, setLinkButtons] = useState<LinkButton[]>(profile?.linkButtons || []);
@@ -97,23 +98,38 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
   );
 
-  async function handleMediaDragEnd(event: DragEndEvent) {
+  function toStoredMedia(items: MediaItem[]): StoredMedia[] {
+    return items.map((item) => ({
+      type: item.type,
+      section: item.section,
+      s3Key: item.s3Key,
+      thumbnail: item.thumbnail,
+      order: item.order,
+      clicks: item.clicks,
+    }));
+  }
+
+  async function handleMediaDragEnd(event: DragEndEvent, section: "post" | "reel") {
     const { active, over } = event;
     if (!over || active.id === over.id || !profile) return;
 
-    const oldIndex = mediaItems.findIndex((m) => m.s3Key === active.id);
-    const newIndex = mediaItems.findIndex((m) => m.s3Key === over.id);
-    const reordered = arrayMove(mediaItems, oldIndex, newIndex).map((m, i) => ({
+    const sectionItems = mediaItems.filter((item) => item.section === section);
+    const oldIndex = sectionItems.findIndex((m) => m.s3Key === active.id);
+    const newIndex = sectionItems.findIndex((m) => m.s3Key === over.id);
+    const reordered = arrayMove(sectionItems, oldIndex, newIndex).map((m, i) => ({
       ...m,
       order: i,
     }));
-    setMediaItems(reordered);
+    const updatedOrders = new Map(reordered.map((item) => [item.s3Key, item.order]));
+    const updatedMedia = mediaItems.map((item) =>
+      item.section === section ? { ...item, order: updatedOrders.get(item.s3Key) ?? item.order } : item
+    );
+    setMediaItems(updatedMedia);
 
     try {
-      const cleaned = reordered.map(({ _id, url, thumbnailUrl, ...rest }) => rest);
       const updatedProfile = await api.adminUpdateProfile(
         profile._id,
-        { media: cleaned } as any,
+        { media: toStoredMedia(updatedMedia) },
         contentVersion
       );
       setContentVersion(updatedProfile.contentVersion);
@@ -135,8 +151,8 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         isVerified,
         order,
-        media: mediaItems,
-        linkButtons: linkButtons.map(({ _id, ...rest }) => rest),
+        media: toStoredMedia(mediaItems),
+        linkButtons: linkButtons.map(({ label, url, linkType, order }) => ({ label, url, linkType, order })),
       };
       if (profile) {
         await api.adminUpdateProfile(profile._id, data, contentVersion);
@@ -162,7 +178,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       if (thumbnail) update.profileImageThumb = thumbnail;
       const updatedProfile = await api.adminUpdateProfile(
         profile._id,
-        update as any,
+        update,
         contentVersion
       );
       setContentVersion(updatedProfile.contentVersion);
@@ -174,23 +190,33 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
     }
   }
 
-  async function handleMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleMediaUpload(
+    e: React.ChangeEvent<HTMLInputElement>,
+    section: "post" | "reel"
+  ) {
     const files = e.target.files;
     if (!files || !profile) return;
     setUploading(true);
     try {
-      const newItems = [];
+      const newItems: StoredMedia[] = [];
       for (const file of Array.from(files)) {
-        const { key, thumbnail } = await api.adminUploadFile(file, profile._id, "media");
+        const { key, thumbnail } = await api.adminUploadFile(file, profile._id, "media", section);
         const type = file.type.startsWith("video/") ? "video" : "image";
-        const item: Record<string, any> = { type, s3Key: key, order: mediaItems.length + newItems.length };
+        const sectionItems = mediaItems.filter((item) => item.section === section);
+        const item: StoredMedia = {
+          type,
+          section,
+          s3Key: key,
+          order: sectionItems.length + newItems.length,
+          clicks: 0,
+        };
         if (thumbnail) item.thumbnail = thumbnail;
         newItems.push(item);
       }
-      const allMedia = [...mediaItems.map(({ _id, url, thumbnailUrl, ...rest }) => rest), ...newItems];
+      const allMedia = [...toStoredMedia(mediaItems), ...newItems];
       const updatedProfile = await api.adminUpdateProfile(
         profile._id,
-        { media: allMedia } as any,
+        { media: allMedia },
         contentVersion
       );
       setContentVersion(updatedProfile.contentVersion);
@@ -206,12 +232,12 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
   async function handleDeleteMedia(s3Key: string) {
     if (!profile || !confirm("למחוק את פריט המדיה הזה?")) return;
     try {
-      const updated = mediaItems
-        .filter((m) => m.s3Key !== s3Key)
-        .map(({ _id, url, thumbnailUrl, ...rest }) => rest);
+      const updated = toStoredMedia(
+        mediaItems.filter((m) => m.s3Key !== s3Key)
+      );
       const updatedProfile = await api.adminUpdateProfile(
         profile._id,
-        { media: updated } as any,
+        { media: updated },
         contentVersion
       );
       await api.adminDeleteMedia(s3Key);
@@ -314,27 +340,63 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
           </div>
 
           <div>
-            <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">מדיה</label>
-            <input ref={fileRef} type="file" accept="image/*, video/*, .jpg, .jpeg, .png, .gif, .webp, .mp4, .mov, .webm" multiple onChange={handleMediaUpload} className="hidden" />
+            <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">פוסטים</label>
+            <input
+              ref={postFileRef}
+              type="file"
+              accept="image/*,video/*,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm"
+              multiple
+              onChange={(event) => handleMediaUpload(event, "post")}
+              className="hidden"
+            />
             <button
               type="button"
-              onClick={() => fileRef.current?.click()}
+              onClick={() => postFileRef.current?.click()}
               disabled={uploading}
               className="bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border rounded-lg px-4 py-2 text-sm transition cursor-pointer disabled:opacity-50 mb-3"
             >
-              {uploading ? "מעלה..." : "הוסף מדיה"}
+              {uploading ? "מעלה..." : "הוסף פוסט"}
             </button>
 
-            {mediaItems.length > 0 && (
-              <DndContext sensors={mediaSensors} collisionDetection={closestCenter} onDragEnd={handleMediaDragEnd}>
-                <SortableContext items={mediaItems.map((m) => m.s3Key)} strategy={rectSortingStrategy}>
+            {mediaItems.filter((item) => item.section === "post").length > 0 && (
+              <DndContext sensors={mediaSensors} collisionDetection={closestCenter} onDragEnd={(event) => handleMediaDragEnd(event, "post")}>
+                <SortableContext items={mediaItems.filter((item) => item.section === "post").map((item) => item.s3Key)} strategy={rectSortingStrategy}>
                   <div className="grid grid-cols-4 gap-2">
-                    {mediaItems.map((m) => (
-                      <SortableMediaItem
-                        key={m.s3Key}
-                        item={m}
-                        onDelete={() => handleDeleteMedia(m.s3Key)}
-                      />
+                    {mediaItems.filter((item) => item.section === "post").map((item) => (
+                      <SortableMediaItem key={item.s3Key} item={item} onDelete={() => handleDeleteMedia(item.s3Key)} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Reels</label>
+            <p className="mb-2 text-xs text-dark-text-secondary">סרטונים אנכיים בלבד</p>
+            <input
+              ref={reelFileRef}
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm"
+              multiple
+              onChange={(event) => handleMediaUpload(event, "reel")}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => reelFileRef.current?.click()}
+              disabled={uploading}
+              className="bg-dark-surface text-dark-text hover:bg-dark-border border border-dark-border rounded-lg px-4 py-2 text-sm transition cursor-pointer disabled:opacity-50 mb-3"
+            >
+              {uploading ? "מעלה..." : "הוסף Reel"}
+            </button>
+
+            {mediaItems.filter((item) => item.section === "reel").length > 0 && (
+              <DndContext sensors={mediaSensors} collisionDetection={closestCenter} onDragEnd={(event) => handleMediaDragEnd(event, "reel")}>
+                <SortableContext items={mediaItems.filter((item) => item.section === "reel").map((item) => item.s3Key)} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-4 gap-2">
+                    {mediaItems.filter((item) => item.section === "reel").map((item) => (
+                      <SortableMediaItem key={item.s3Key} item={item} onDelete={() => handleDeleteMedia(item.s3Key)} />
                     ))}
                   </div>
                 </SortableContext>

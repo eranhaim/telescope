@@ -223,7 +223,7 @@ export default function AdminPage() {
     setLoading(true);
     try {
       const [data, stats, hourly, popupData, bcHistory, giftData] = await Promise.all([
-        api.getProfiles(),
+        api.getAdminProfiles(),
         api.adminGetStats(),
         api.adminGetHourlyUsers(7),
         api.adminGetPopup(),

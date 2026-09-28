@@ -27,6 +27,7 @@ export default function MediaGrid({ media, onItemClick }: Props) {
           <button
             key={item._id}
             onClick={() => onItemClick(i)}
+            aria-label={`Open post ${i + 1}`}
             className="relative aspect-square overflow-hidden cursor-pointer border-0 p-0 bg-dark-surface"
           >
             <img

@@ -9,6 +9,7 @@ import popupRouter from "./routes/popup";
 import giftRouter from "./routes/gift";
 import BroadcastMessage from "./models/BroadcastMessage";
 import { getStorageConfiguration } from "./services/s3";
+import { runMigrations } from "./migrations";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -65,6 +66,7 @@ async function start() {
   try {
     await mongoose.connect(mongoUri);
     console.log("Connected to MongoDB");
+    await runMigrations();
   } catch (err) {
     console.error("MongoDB connection error:", err);
     process.exit(1);

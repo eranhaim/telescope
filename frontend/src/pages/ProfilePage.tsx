@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import type { Profile } from "../api/client";
+import type { MediaItem, Profile } from "../api/client";
 import { useBackButton } from "../hooks/useTelegram";
 import MediaGrid from "../components/MediaGrid";
 import MediaViewer from "../components/MediaViewer";
+import ReelGrid from "../components/ReelGrid";
 import { useLocale } from "../i18n/useLocale";
 
 function isTelegramLink(url: string): boolean {
@@ -68,6 +69,7 @@ export default function ProfilePage() {
     const [loadError, setLoadError] = useState("");
     const [reloadKey, setReloadKey] = useState(0);
     const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+    const [viewerMedia, setViewerMedia] = useState<MediaItem[]>([]);
     const [copied, setCopied] = useState(false);
 
     const goBack = useCallback(() => navigate(-1), [navigate]);
@@ -117,6 +119,16 @@ export default function ProfilePage() {
     }
 
     const sortedMedia = [...profile.media].sort((a, b) => a.order - b.order);
+    const reels = sortedMedia.filter((item) => item.section === "reel");
+    const posts = sortedMedia.filter((item) => item.section !== "reel");
+
+    function openViewer(media: MediaItem[], index: number) {
+        const item = media[index];
+        if (!item || !profile) return;
+        api.trackMediaClick(profile._id, item._id);
+        setViewerMedia(media);
+        setViewerIndex(index);
+    }
 
     return (
         <div className="min-h-screen bg-dark-bg">
@@ -244,20 +256,32 @@ export default function ProfilePage() {
                     )}
                 </div>
 
-                <MediaGrid
-                    media={sortedMedia}
-                    onItemClick={(i) => {
-                        const item = sortedMedia[i];
-                        if (item && profile)
-                            api.trackMediaClick(profile._id, item.s3Key);
-                        setViewerIndex(i);
-                    }}
-                />
+                <section aria-labelledby="reels-heading" className="mb-6">
+                    <h3 id="reels-heading" className="px-4 mb-3 text-base font-semibold text-white">
+                        Reels
+                    </h3>
+                    {reels.length > 0 ? (
+                        <ReelGrid reels={reels} onItemClick={(index) => openViewer(reels, index)} />
+                    ) : (
+                        <p className="px-4 text-sm text-dark-text-secondary">No reels yet.</p>
+                    )}
+                </section>
+
+                <section aria-labelledby="posts-heading">
+                    <h3 id="posts-heading" className="px-4 mb-3 text-base font-semibold text-white">
+                        Posts
+                    </h3>
+                    {posts.length > 0 ? (
+                        <MediaGrid media={posts} onItemClick={(index) => openViewer(posts, index)} />
+                    ) : (
+                        <p className="px-4 pb-8 text-sm text-dark-text-secondary">No posts yet.</p>
+                    )}
+                </section>
             </div>
 
             {viewerIndex !== null && (
                 <MediaViewer
-                    media={sortedMedia}
+                    media={viewerMedia}
                     currentIndex={viewerIndex}
                     onClose={() => setViewerIndex(null)}
                     onNavigate={setViewerIndex}

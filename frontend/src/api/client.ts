@@ -23,6 +23,7 @@ function authHeaders(): Record<string, string> {
 export interface MediaItem {
   _id: string;
   type: "image" | "video";
+  section: "post" | "reel";
   s3Key: string;
   url?: string;
   thumbnail?: string;
@@ -60,11 +61,25 @@ export interface Profile {
   updatedAt: string;
 }
 
+export type StoredMedia = Pick<
+  MediaItem,
+  "type" | "section" | "s3Key" | "thumbnail" | "order" | "clicks"
+>;
+export type ProfileInput = Partial<Omit<Profile, "media" | "linkButtons">> & {
+  media?: StoredMedia[];
+  linkButtons?: Omit<LinkButton, "_id">[];
+};
+
 export const api = {
-  getProfiles(tag?: string, search?: string): Promise<Profile[]> {
+  getProfiles(
+    tag?: string,
+    search?: string,
+    section?: "post" | "reel"
+  ): Promise<Profile[]> {
     const params = new URLSearchParams();
     if (tag) params.set("tag", tag);
     if (search) params.set("search", search);
+    if (section) params.set("section", section);
     const qs = params.toString();
     return request(`/profiles${qs ? `?${qs}` : ""}`);
   },
@@ -80,7 +95,11 @@ export const api = {
     });
   },
 
-  adminCreateProfile(data: Partial<Profile>): Promise<Profile> {
+  getAdminProfiles(): Promise<Profile[]> {
+    return request("/admin/profiles", { headers: authHeaders() });
+  },
+
+  adminCreateProfile(data: ProfileInput): Promise<Profile> {
     return request("/admin/profiles", {
       method: "POST",
       body: JSON.stringify(data),
@@ -88,7 +107,7 @@ export const api = {
     });
   },
 
-  adminUpdateProfile(id: string, data: Partial<Profile>, expectedContentVersion?: number): Promise<Profile> {
+  adminUpdateProfile(id: string, data: ProfileInput, expectedContentVersion?: number): Promise<Profile> {
     return request(`/admin/profiles/${id}`, {
       method: "PUT",
       body: JSON.stringify({ ...data, expectedContentVersion }),
@@ -114,12 +133,14 @@ export const api = {
   async adminUploadFile(
     file: File,
     profileId: string,
-    folder: "media" | "avatar" = "media"
+    folder: "media" | "avatar" = "media",
+    section?: "post" | "reel"
   ): Promise<{ key: string; thumbnail?: string }> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("profileId", profileId);
     formData.append("folder", folder);
+    if (section) formData.append("section", section);
 
     const res = await fetch(`${BASE}/admin/upload`, {
       method: "POST",
@@ -210,10 +231,10 @@ export const api = {
     }).catch(() => {});
   },
 
-  trackMediaClick(profileId: string, s3Key: string): void {
+  trackMediaClick(profileId: string, mediaId: string): void {
     const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const source = window.Telegram?.WebApp ? "telegram" : "browser";
-    fetch(`${BASE}/track/media/${profileId}/${encodeURIComponent(s3Key)}`, {
+    fetch(`${BASE}/track/media/${profileId}/${encodeURIComponent(mediaId)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source, ...(telegramUserId ? { telegramUserId } : {}) }),

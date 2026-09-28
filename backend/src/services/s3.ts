@@ -143,7 +143,17 @@ export async function getSignedMediaUrl(key: string): Promise<string> {
   return url;
 }
 
-export async function signProfileUrls(profile: Record<string, any>) {
+export type MediaSection = "post" | "reel";
+
+interface SignProfileOptions {
+  mediaSection?: MediaSection;
+  includeStorageKeys?: boolean;
+}
+
+export async function signProfileUrls(
+  profile: Record<string, any>,
+  { mediaSection, includeStorageKeys = false }: SignProfileOptions = {}
+) {
   const obj = typeof profile.toObject === "function" ? profile.toObject() : { ...profile };
 
   if (obj.profileImage) {
@@ -157,17 +167,32 @@ export async function signProfileUrls(profile: Record<string, any>) {
   }
 
   if (obj.media && Array.isArray(obj.media)) {
+    const media = mediaSection
+      ? obj.media.filter((item: { section?: MediaSection }) => (item.section || "post") === mediaSection)
+      : obj.media;
+
     obj.media = await Promise.all(
-      obj.media.map(async (m: any) => {
+      media.map(async (m: any) => {
         const url = await getSignedMediaUrl(m.s3Key).catch(() => undefined);
-        return {
+        const signed = {
           ...m,
+          section: m.section || "post",
           url,
           thumbnailUrl: m.thumbnail ? await getSignedMediaUrl(m.thumbnail).catch(() => undefined) : undefined,
           available: Boolean(url),
         };
+        if (!includeStorageKeys) {
+          delete signed.s3Key;
+          delete signed.thumbnail;
+        }
+        return signed;
       })
     );
+  }
+
+  if (!includeStorageKeys) {
+    delete obj.profileImage;
+    delete obj.profileImageThumb;
   }
 
   return obj;

@@ -1,12 +1,12 @@
 import { Router, Request, Response } from "express";
 import Profile from "../models/Profile";
-import { signProfileUrls } from "../services/s3";
+import { MediaSection, signProfileUrls } from "../services/s3";
 
 const router = Router();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { tag, search } = req.query;
+    const { tag, search, section } = req.query;
     let query: Record<string, any> = {};
 
     if (tag && typeof tag === "string") {
@@ -15,12 +15,21 @@ router.get("/", async (req: Request, res: Response) => {
     if (search && typeof search === "string") {
       query.$text = { $search: search };
     }
+    if (section !== undefined && section !== "post" && section !== "reel") {
+      res.status(400).json({ error: "section must be post or reel" });
+      return;
+    }
+    if (section) {
+      query["media.section"] = section;
+    }
 
     const profiles = await Profile.find(query)
       .sort({ order: 1, createdAt: -1 })
       .lean();
 
-    const signed = await Promise.all(profiles.map((p) => signProfileUrls(p)));
+    const signed = await Promise.all(
+      profiles.map((p) => signProfileUrls(p, { mediaSection: section as MediaSection | undefined }))
+    );
     res.json(signed);
   } catch (err) {
     console.error("GET /api/profiles error:", err);

@@ -99,15 +99,13 @@ router.post("/profile/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/media/:profileId/:s3Key(*)", async (req: Request, res: Response) => {
+router.post("/media/:profileId/:mediaId", async (req: Request, res: Response) => {
   try {
     const { profileId } = req.params;
-    const s3Key = Array.isArray(req.params.s3Key)
-      ? req.params.s3Key.join("/")
-      : req.params.s3Key;
+    const { mediaId } = req.params;
 
     await Profile.findOneAndUpdate(
-      { _id: profileId, "media.s3Key": s3Key },
+      { _id: profileId, "media._id": mediaId },
       { $inc: { "media.$.clicks": 1 } }
     );
 
@@ -117,7 +115,7 @@ router.post("/media/:profileId/:s3Key(*)", async (req: Request, res: Response) =
     await Event.create({
       type: "media_click",
       profileId,
-      s3Key,
+      mediaId,
       telegramUserId,
       source,
       at: new Date(),

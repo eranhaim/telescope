@@ -44,6 +44,28 @@ function pickProfileData(body: Record<string, unknown>): Record<string, unknown>
   );
 }
 
+function validateAndNormalizeMedia(data: Record<string, unknown>): string | undefined {
+  if (!data.media) return undefined;
+  if (!Array.isArray(data.media) || data.media.length > 200) {
+    return "media must be an array with at most 200 items";
+  }
+
+  for (const item of data.media) {
+    if (!item || typeof item !== "object") return "media items must be objects";
+    const media = item as Record<string, unknown>;
+    const section = media.section === undefined ? "post" : media.section;
+    if (section !== "post" && section !== "reel") return "media section must be post or reel";
+    if (media.type !== "image" && media.type !== "video") return "media type must be image or video";
+    if (section === "reel" && media.type !== "video") return "reels must be videos";
+    if (typeof media.s3Key !== "string" || !media.s3Key.startsWith("profiles/")) {
+      return "media must reference profile storage";
+    }
+    media.section = section;
+  }
+
+  return undefined;
+}
+
 async function saveProfileRevision(
   profile: InstanceType<typeof Profile>,
   action: "create" | "update" | "delete",
@@ -92,9 +114,27 @@ router.post("/login", (req: Request, res: Response) => {
   res.json({ token });
 });
 
+router.get("/profiles", adminAuth, async (_req: Request, res: Response) => {
+  try {
+    const profiles = await Profile.find({}).sort({ order: 1, createdAt: -1 }).lean();
+    const signed = await Promise.all(
+      profiles.map((profile) => signProfileUrls(profile, { includeStorageKeys: true }))
+    );
+    res.json(signed);
+  } catch (err) {
+    console.error("GET /api/admin/profiles error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/profiles", adminAuth, async (req: Request, res: Response) => {
   try {
     const data = pickProfileData(req.body);
+    const mediaError = validateAndNormalizeMedia(data);
+    if (mediaError) {
+      res.status(400).json({ error: mediaError });
+      return;
+    }
     if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink as string);
     if (data.linkButtons) {
       if (!Array.isArray(data.linkButtons)) {
@@ -169,6 +209,11 @@ router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
       res.status(400).json({ error: "No valid profile fields provided" });
       return;
     }
+    const mediaError = validateAndNormalizeMedia(data);
+    if (mediaError) {
+      res.status(400).json({ error: mediaError });
+      return;
+    }
     if (data.telegramLink) data.telegramLink = normalizeTelegramLink(data.telegramLink as string);
     if (data.linkButtons) {
       if (!Array.isArray(data.linkButtons)) {
@@ -192,7 +237,7 @@ router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
       res.status(409).json({ error: "Profile changed during save. Reload and try again." });
       return;
     }
-    const signed = await signProfileUrls(profile);
+    const signed = await signProfileUrls(profile, { includeStorageKeys: true });
     res.json(signed);
   } catch (err) {
     console.error("PUT /api/admin/profiles/:id error:", err);
@@ -234,7 +279,31 @@ router.post(
         res.status(400).json({ error: "No file provided" });
         return;
       }
-      const { profileId, folder } = req.body;
+      const { profileId, folder, section } = req.body;
+      if (folder !== "avatar" && folder !== "media") {
+        res.status(400).json({ error: "folder must be avatar or media" });
+        return;
+      }
+      if (section !== undefined && section !== "post" && section !== "reel") {
+        res.status(400).json({ error: "section must be post or reel" });
+        return;
+      }
+      if (folder === "avatar" && !req.file.mimetype.startsWith("image/")) {
+        res.status(400).json({ error: "Profile images must be image files" });
+        return;
+      }
+      if (
+        folder === "media" &&
+        !req.file.mimetype.startsWith("image/") &&
+        !req.file.mimetype.startsWith("video/")
+      ) {
+        res.status(400).json({ error: "Posts must be image or video files" });
+        return;
+      }
+      if (section === "reel" && !req.file.mimetype.startsWith("video/")) {
+        res.status(400).json({ error: "Reels must be video files" });
+        return;
+      }
 
       // Resolve S3 folder from existing files so uploads go to the
       // original directory, even if the DB _id changed after a restore.

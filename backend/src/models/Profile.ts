@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IMediaItem {
   type: "image" | "video";
+  section: "post" | "reel";
   s3Key: string;
   thumbnail?: string;
   order: number;
@@ -35,6 +36,7 @@ export interface IProfile extends Document {
 const MediaItemSchema = new Schema<IMediaItem>(
   {
     type: { type: String, enum: ["image", "video"], required: true },
+    section: { type: String, enum: ["post", "reel"], default: "post" },
     s3Key: { type: String, required: true },
     thumbnail: { type: String },
     order: { type: Number, default: 0 },

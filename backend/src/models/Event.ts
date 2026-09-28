@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IEvent extends Document {
   type: "site_open" | "profile_click" | "media_click" | "button_click" | "popup_click" | "bot_start";
   profileId?: string;
+  mediaId?: string;
   s3Key?: string;
   buttonType?: string;
   buttonLabel?: string;
@@ -17,6 +18,7 @@ const EventSchema = new Schema<IEvent>(
   {
     type: { type: String, enum: ["site_open", "profile_click", "media_click", "button_click", "popup_click", "bot_start"], required: true },
     profileId: { type: String },
+    mediaId: { type: String },
     s3Key: { type: String },
     buttonType: { type: String },
     buttonLabel: { type: String },

@@ -6,6 +6,7 @@ import ProfileCard from "../components/ProfileCard";
 import IdlePopup from "../components/IdlePopup";
 import GiftPopup from "../components/GiftPopup";
 import { useLocale } from "../i18n/useLocale";
+import BottomAppBar from "../components/BottomAppBar";
 
 export default function ExplorePage() {
   const navigate = useNavigate();
@@ -145,6 +146,7 @@ export default function ExplorePage() {
           </div>
         )}
       </main>
+      <BottomAppBar active="catalog" />
     </div>
   );
 }
