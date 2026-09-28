@@ -39,49 +39,63 @@ body {
 .reel-timeline {
   --reel-progress: 0%;
   --reel-buffered: 0%;
+  direction: ltr;
+  unicode-bidi: isolate;
+  accent-color: #ff2d8d;
+}
+
+.reel-timeline:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 95%);
+  outline-offset: 4px;
 }
 
 .reel-timeline::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 8px;
   border-radius: 999px;
   background: linear-gradient(
     to right,
-    rgb(255 255 255 / 92%) 0 var(--reel-progress),
-    rgb(255 255 255 / 48%) var(--reel-progress) var(--reel-buffered),
-    rgb(255 255 255 / 18%) var(--reel-buffered) 100%
+    #ff1f86 0 var(--reel-progress),
+    #ff91c5 var(--reel-progress) var(--reel-buffered),
+    rgb(255 255 255 / 24%) var(--reel-buffered) 100%
   );
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 65%), inset 0 -1px 2px rgb(110 0 57 / 45%);
 }
 
 .reel-timeline::-webkit-slider-thumb {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   margin-top: -5px;
-  border: 2px solid rgb(0 0 0 / 35%);
+  border: 3px solid white;
   border-radius: 999px;
   appearance: none;
-  background: white;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+  background: linear-gradient(145deg, #ffd1e6 0%, #ff439b 46%, #e60067 100%);
+  box-shadow: 0 2px 7px rgb(0 0 0 / 55%), 0 0 0 2px rgb(255 54 147 / 45%);
 }
 
 .reel-timeline::-moz-range-track {
-  height: 4px;
+  height: 8px;
   border-radius: 999px;
-  background: rgb(255 255 255 / 18%);
+  background: linear-gradient(
+    to right,
+    #ff91c5 0 var(--reel-buffered),
+    rgb(255 255 255 / 24%) var(--reel-buffered) 100%
+  );
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 65%), inset 0 -1px 2px rgb(110 0 57 / 45%);
 }
 
 .reel-timeline::-moz-range-progress {
-  height: 4px;
+  height: 8px;
   border-radius: 999px;
-  background: rgb(255 255 255 / 92%);
+  background: linear-gradient(180deg, #ff64aa 0%, #ff1f86 52%, #e60067 100%);
 }
 
 .reel-timeline::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
-  border: 2px solid rgb(0 0 0 / 35%);
+  width: 13px;
+  height: 13px;
+  border: 3px solid white;
   border-radius: 999px;
-  background: white;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+  background: linear-gradient(145deg, #ffd1e6 0%, #ff439b 46%, #e60067 100%);
+  box-shadow: 0 2px 7px rgb(0 0 0 / 55%), 0 0 0 2px rgb(255 54 147 / 45%);
 }
 
 @keyframes shimmer {

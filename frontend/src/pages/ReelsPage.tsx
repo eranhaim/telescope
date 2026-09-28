@@ -77,11 +77,11 @@ export default function ReelsPage() {
   }
 
   return (
-    <main className="h-[100dvh] snap-y snap-mandatory overflow-y-auto bg-black pb-16">
+    <main className="h-[100dvh] snap-y snap-mandatory overflow-y-auto bg-black pb-[calc(4rem+env(safe-area-inset-bottom))]">
       {reels.map(({ profile, media }, index) => (
         <article
           key={media._id}
-          className="relative h-[calc(100dvh-4rem)] snap-start bg-black"
+          className="relative h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] snap-start bg-black"
           aria-label={`Reel ${index + 1} by ${profile.name}`}
         >
           {media.url ? (
@@ -101,7 +101,8 @@ export default function ReelsPage() {
 
           <button
             type="button"
-            onClick={() => {
+            onClick={(event) => {
+              event.stopPropagation();
               api.trackProfileClick(profile._id);
               navigate(`/profile/${profile._id}`);
             }}

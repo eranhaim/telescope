@@ -38,6 +38,10 @@ export default function ReelVideo({
   const [bufferedTime, setBufferedTime] = useState(0);
   const [showTimeline, setShowTimeline] = useState(true);
   const [isTimelineFocused, setIsTimelineFocused] = useState(false);
+  const [isManuallyPaused, setIsManuallyPaused] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackIndicator, setPlaybackIndicator] = useState<"play" | "pause" | null>(null);
+  const playbackIndicatorTimer = useRef<number | undefined>(undefined);
 
   const isActive = isVisible && isPageVisible;
   const progress = duration > 0 ? Math.min((currentTime / duration) * 100, 100) : 0;
@@ -72,6 +76,8 @@ export default function ReelVideo({
       videoElement.pause();
       return;
     }
+
+    if (isManuallyPaused) return;
 
     const video: HTMLVideoElement = videoElement;
     let cancelled = false;
@@ -115,7 +121,7 @@ export default function ReelVideo({
     return () => {
       cancelled = true;
     };
-  }, [audioMode, isActive, onAudioModeChange, src]);
+  }, [audioMode, isActive, isManuallyPaused, onAudioModeChange, src]);
 
   useEffect(() => {
     if (!showTimeline || isTimelineFocused) return;
@@ -126,7 +132,10 @@ export default function ReelVideo({
   }, [isTimelineFocused, showTimeline]);
 
   useEffect(() => {
-    return () => window.clearTimeout(controlsTimer.current);
+    return () => {
+      window.clearTimeout(controlsTimer.current);
+      window.clearTimeout(playbackIndicatorTimer.current);
+    };
   }, []);
 
   function revealTimeline() {
@@ -147,13 +156,47 @@ export default function ReelVideo({
     revealTimeline();
   }
 
-  async function enableAudio() {
+  function showPlaybackState(state: "play" | "pause") {
+    window.clearTimeout(playbackIndicatorTimer.current);
+    setPlaybackIndicator(state);
+    playbackIndicatorTimer.current = window.setTimeout(() => setPlaybackIndicator(null), 800);
+  }
+
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (!video || window.getSelection()?.toString().trim()) return;
+
+    revealTimeline();
+    if (video.paused) {
+      setIsManuallyPaused(false);
+      void video.play().then(
+        () => showPlaybackState("play"),
+        () => {
+          setIsManuallyPaused(true);
+          showPlaybackState("pause");
+        }
+      );
+      return;
+    }
+
+    video.pause();
+    setIsManuallyPaused(true);
+    showPlaybackState("pause");
+  }
+
+  async function toggleAudio() {
     const video = videoRef.current;
     if (!video) return;
 
-    video.muted = false;
+    const shouldMute = audioMode === "enabled";
+    video.muted = shouldMute;
+    if (shouldMute) {
+      onAudioModeChange("muted");
+      return;
+    }
+
     try {
-      await video.play();
+      if (!video.paused) await video.play();
       onAudioModeChange("enabled");
     } catch {
       video.muted = true;
@@ -178,7 +221,16 @@ export default function ReelVideo({
         preload={isInitiallyActive ? "auto" : "metadata"}
         disablePictureInPicture
         controlsList="nodownload noplaybackrate noremoteplayback"
-        className="h-full w-full object-contain"
+        tabIndex={0}
+        aria-label={isPlaying ? "Pause reel" : "Play reel"}
+        className="h-full w-full cursor-pointer object-cover focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-pink-300"
+        onClick={togglePlayback}
+        onKeyDown={(event) => {
+          if (event.key === " " || event.key === "Enter") {
+            event.preventDefault();
+            togglePlayback();
+          }
+        }}
         onLoadedMetadata={(event) => {
           setDuration(event.currentTarget.duration);
           updateBufferedTime();
@@ -186,35 +238,67 @@ export default function ReelVideo({
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
         onProgress={updateBufferedTime}
         onPlay={() => {
+          setIsPlaying(true);
           if (!hasTrackedPlay.current) {
             hasTrackedPlay.current = true;
             onPlay();
           }
         }}
+        onPause={() => setIsPlaying(false)}
       >
         Your browser does not support video playback.
       </video>
 
-      {audioMode === "muted" && isActive && (
+      {playbackIndicator && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center" aria-live="polite">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/65 text-white shadow-xl backdrop-blur-sm">
+            {playbackIndicator === "play" ? (
+              <svg viewBox="0 0 24 24" className="h-7 w-7 fill-current" aria-hidden="true">
+                <path d="M8 5.4v13.2c0 .8.9 1.3 1.6.8l10.1-6.6a1 1 0 0 0 0-1.7L9.6 4.6A1 1 0 0 0 8 5.4Z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-7 w-7 fill-current" aria-hidden="true">
+                <path d="M7 5h3v14H7zm7 0h3v14h-3z" />
+              </svg>
+            )}
+            <span className="sr-only">{playbackIndicator === "play" ? "Playing" : "Paused"}</span>
+          </span>
+        </div>
+      )}
+
+      {isActive && (
         <button
           type="button"
-          onClick={() => void enableAudio()}
-          className="absolute right-4 top-4 z-10 rounded-full bg-black/65 px-3 py-2 text-xs font-medium text-white shadow-lg backdrop-blur transition hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          aria-label="Enable reel audio"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            void toggleAudio();
+          }}
+          className="absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white shadow-lg backdrop-blur transition hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
+          aria-label={audioMode === "enabled" ? "Mute reel audio" : "Unmute reel audio"}
+          aria-pressed={audioMode === "muted"}
         >
-          Tap for sound
+          {audioMode === "enabled" ? (
+            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
+              <path d="M3 10v4h4l5 4V6l-5 4H3Zm11.5 2a3.5 3.5 0 0 0-2-3.15v6.3a3.5 3.5 0 0 0 2-3.15Zm-2-8.25v2.1a6.5 6.5 0 0 1 0 12.3v2.1a8.5 8.5 0 0 0 0-16.5Z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
+              <path d="M3 10v4h4l5 4V6l-5 4H3Zm11.5 2a3.5 3.5 0 0 0-2-3.15v2.46l2 2A3.5 3.5 0 0 0 14.5 12Zm3.79 6.21L20.5 21.42 21.92 20l-18-18L2.5 3.42l4.5 4.5v.08H3v4h4l5 4v-4.67l5.79 5.79ZM12 5.85v-2.1c1.33.45 2.53 1.2 3.5 2.17L14.08 7.34A6.47 6.47 0 0 0 12 5.85Z" />
+            </svg>
+          )}
         </button>
       )}
 
       <div
+        dir="ltr"
         className={`absolute inset-x-4 bottom-20 z-10 transition-opacity motion-reduce:transition-none ${
           showTimeline ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-3 rounded-full bg-black/45 px-3 py-2 backdrop-blur-sm">
-          <span className="min-w-10 text-right text-[11px] tabular-nums text-white/80" aria-hidden="true">
-            {formatTime(currentTime)}
-          </span>
+        <div className="flex items-center rounded-full border border-pink-200/25 bg-black/55 px-4 py-2 shadow-lg backdrop-blur-sm">
           <input
             type="range"
             min="0"
@@ -226,7 +310,8 @@ export default function ReelVideo({
             onBlur={() => setIsTimelineFocused(false)}
             aria-label="Reel playback position"
             aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-            className="reel-timeline h-7 min-w-0 flex-1 cursor-pointer appearance-none bg-transparent"
+            dir="ltr"
+            className="reel-timeline h-9 min-w-0 flex-1 cursor-pointer appearance-none bg-transparent"
             style={
               {
                 "--reel-progress": `${progress}%`,
@@ -234,9 +319,6 @@ export default function ReelVideo({
               } as CSSProperties
             }
           />
-          <span className="min-w-10 text-[11px] tabular-nums text-white/80" aria-hidden="true">
-            {formatTime(duration)}
-          </span>
         </div>
       </div>
     </div>
