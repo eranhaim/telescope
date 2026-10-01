@@ -5,6 +5,7 @@ import type { Profile } from "../api/client";
 import ProfileCard from "../components/ProfileCard";
 import IdlePopup from "../components/IdlePopup";
 import GiftPopup from "../components/GiftPopup";
+import ExploreGuide from "../components/ExploreGuide";
 import { useLocale } from "../i18n/useLocale";
 import BottomAppBar from "../components/BottomAppBar";
 
@@ -17,6 +18,7 @@ export default function ExplorePage() {
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [giftOpen, setGiftOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const tabs = [
     { key: "", label: t("tabAll"), icon: "✨" },
@@ -65,25 +67,36 @@ export default function ExplorePage() {
 
       <header className="px-4 pb-2">
         <h1 className="mb-2 text-lg font-semibold text-white">Telescope exclusive content</h1>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border cursor-pointer ${
-                activeTab === tab.key
-                  ? "bg-white text-black border-white"
-                  : "bg-dark-surface text-dark-text border-dark-border hover:border-dark-text-secondary"
-              }`}
-            >
-              <span>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border cursor-pointer ${
+                  activeTab === tab.key
+                    ? "bg-white text-black border-white"
+                    : "bg-dark-surface text-dark-text border-dark-border hover:border-dark-text-secondary"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setGuideOpen(true)}
+            aria-label="איך משתמשים ב-Telescope"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dark-border bg-dark-surface text-sm font-semibold text-dark-text transition hover:text-white"
+          >
+            ?
+          </button>
         </div>
       </header>
 
       {giftOpen && <GiftPopup onClose={() => setGiftOpen(false)} />}
+      {guideOpen && <ExploreGuide onClose={() => setGuideOpen(false)} />}
 
       {reelCount > 0 && (
         <button
