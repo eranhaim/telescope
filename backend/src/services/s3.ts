@@ -73,10 +73,11 @@ function assertStorageConfigured(): void {
 export async function uploadToS3(
   file: Express.Multer.File,
   profileId: string,
-  folder: "media" | "avatar" = "media"
+  folder: "media" | "avatar" = "media",
+  extension?: string
 ): Promise<string> {
   assertStorageConfigured();
-  const ext = path.extname(file.originalname);
+  const ext = extension ? `.${extension}` : path.extname(file.originalname);
   const key =
     folder === "avatar"
       ? `profiles/${profileId}/avatar${ext}`
@@ -148,11 +149,12 @@ export type MediaSection = "post" | "reel";
 interface SignProfileOptions {
   mediaSection?: MediaSection;
   includeStorageKeys?: boolean;
+  includeDraftReels?: boolean;
 }
 
 export async function signProfileUrls(
   profile: Record<string, any>,
-  { mediaSection, includeStorageKeys = false }: SignProfileOptions = {}
+  { mediaSection, includeStorageKeys = false, includeDraftReels = false }: SignProfileOptions = {}
 ) {
   const obj = typeof profile.toObject === "function" ? profile.toObject() : { ...profile };
 
@@ -167,9 +169,11 @@ export async function signProfileUrls(
   }
 
   if (obj.media && Array.isArray(obj.media)) {
-    const media = mediaSection
-      ? obj.media.filter((item: { section?: MediaSection }) => (item.section || "post") === mediaSection)
-      : obj.media;
+    const media = obj.media.filter((item: { section?: MediaSection; isPublished?: boolean }) => {
+      const sectionMatches = !mediaSection || (item.section || "post") === mediaSection;
+      const isPublicReel = item.section !== "reel" || item.isPublished !== false;
+      return sectionMatches && (includeDraftReels || isPublicReel);
+    });
 
     obj.media = await Promise.all(
       media.map(async (m: any) => {

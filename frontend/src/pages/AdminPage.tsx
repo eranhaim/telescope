@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Profile } from "../api/client";
 import AdminProfileForm from "../components/AdminProfileForm";
+import AdminReelsPanel from "../components/AdminReelsPanel";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   DndContext,
@@ -25,10 +26,12 @@ function SortableProfileRow({
   profile,
   onEdit,
   onDelete,
+  onPreview,
 }: {
   profile: Profile;
   onEdit: () => void;
   onDelete: () => void;
+  onPreview: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: profile._id });
@@ -39,6 +42,8 @@ function SortableProfileRow({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : undefined,
   };
+  const reels = profile.media.filter((media) => media.section === "reel");
+  const liveReels = reels.filter((media) => media.isPublished !== false).length;
 
   return (
     <div
@@ -73,6 +78,9 @@ function SortableProfileRow({
           </span>
         </div>
         <p className="text-dark-text-secondary text-xs truncate">{profile.handle}</p>
+        <p className="mt-1 text-[10px] text-dark-text-secondary">
+          Reels: {liveReels} באוויר · {reels.length - liveReels} טיוטות
+        </p>
         <div className="flex gap-1 mt-1">
           {profile.tags.map((t) => (
             <span key={t} className="bg-dark-surface text-dark-text-secondary text-[10px] px-2 py-0.5 rounded-full">
@@ -82,6 +90,14 @@ function SortableProfileRow({
         </div>
       </div>
       <div className="flex gap-2 shrink-0">
+        <button
+          onClick={onPreview}
+          className="text-dark-text-secondary hover:text-white text-sm bg-transparent border-0 cursor-pointer p-1 transition"
+          title="פתח דף יוצרת"
+          aria-label={`פתח את הדף של ${profile.name}`}
+        >
+          ↗
+        </button>
         <button
           onClick={onEdit}
           className="text-dark-text-secondary hover:text-white text-sm bg-transparent border-0 cursor-pointer p-1 transition"
@@ -390,6 +406,8 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+
+        <AdminReelsPanel profiles={profiles} onManage={setEditing} />
 
         <div className="bg-dark-card border border-dark-border rounded-xl p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
@@ -903,6 +921,7 @@ export default function AdminPage() {
                     profile={p}
                     onEdit={() => setEditing(p)}
                     onDelete={() => handleDelete(p._id)}
+                    onPreview={() => window.open(`/profile/${p._id}`, "_blank", "noopener,noreferrer")}
                   />
                 ))}
               </div>

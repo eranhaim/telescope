@@ -5,6 +5,7 @@ export interface IMediaItem {
   section: "post" | "reel";
   s3Key: string;
   thumbnail?: string;
+  isPublished?: boolean;
   order: number;
   clicks: number;
 }
@@ -39,6 +40,7 @@ const MediaItemSchema = new Schema<IMediaItem>(
     section: { type: String, enum: ["post", "reel"], default: "post" },
     s3Key: { type: String, required: true },
     thumbnail: { type: String },
+    isPublished: { type: Boolean },
     order: { type: Number, default: 0 },
     clicks: { type: Number, default: 0 },
   },

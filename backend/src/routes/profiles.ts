@@ -20,7 +20,9 @@ router.get("/", async (req: Request, res: Response) => {
       return;
     }
     if (section) {
-      query["media.section"] = section;
+      query.media = section === "reel"
+        ? { $elemMatch: { section: "reel", isPublished: { $ne: false } } }
+        : { $elemMatch: { section } };
     }
 
     const profiles = await Profile.find(query)

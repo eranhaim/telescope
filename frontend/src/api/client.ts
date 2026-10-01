@@ -29,6 +29,7 @@ export interface MediaItem {
   thumbnail?: string;
   thumbnailUrl?: string;
   available?: boolean;
+  isPublished?: boolean;
   order: number;
   clicks: number;
 }
@@ -64,6 +65,7 @@ export interface Profile {
 export type StoredMedia = Pick<
   MediaItem,
   "type" | "section" | "s3Key" | "thumbnail" | "order" | "clicks"
+  | "isPublished"
 >;
 export type ProfileInput = Partial<Omit<Profile, "media" | "linkButtons">> & {
   media?: StoredMedia[];

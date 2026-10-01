@@ -21,9 +21,11 @@ import { CSS } from "@dnd-kit/utilities";
 function SortableMediaItem({
   item,
   onDelete,
+  onTogglePublication,
 }: {
   item: MediaItem;
   onDelete: () => void;
+  onTogglePublication?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.s3Key });
@@ -66,6 +68,17 @@ function SortableMediaItem({
       >
         ×
       </button>
+      {item.section === "reel" && onTogglePublication && (
+        <button
+          type="button"
+          onClick={onTogglePublication}
+          className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-white border-0 cursor-pointer z-10 ${
+            item.isPublished === false ? "bg-amber-600" : "bg-emerald-600"
+          }`}
+        >
+          {item.isPublished === false ? "טיוטה" : "באוויר"}
+        </button>
+      )}
     </div>
   );
 }
@@ -168,6 +181,25 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
     }
   }
 
+  async function toggleReelPublication(s3Key: string) {
+    if (!profile) return;
+    const updatedMedia = mediaItems.map((item) =>
+      item.s3Key === s3Key ? { ...item, isPublished: item.isPublished === false } : item
+    );
+    try {
+      const updatedProfile = await api.adminUpdateProfile(
+        profile._id,
+        { media: toStoredMedia(updatedMedia) },
+        contentVersion
+      );
+      setContentVersion(updatedProfile.contentVersion);
+      setMediaItems(updatedProfile.media);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "עדכון הסטטוס נכשל");
+    }
+  }
+
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -209,6 +241,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
           s3Key: key,
           order: sectionItems.length + newItems.length,
           clicks: 0,
+          ...(section === "reel" ? { isPublished: false } : {}),
         };
         if (thumbnail) item.thumbnail = thumbnail;
         newItems.push(item);
@@ -245,6 +278,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
       setMediaItems(updatedProfile.media);
     } catch (err) {
       console.error(err);
+      alert(err instanceof Error ? err.message : "מחיקת המדיה נכשלה");
     }
   }
 
@@ -373,7 +407,7 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
 
           <div>
             <label className="block text-xs text-dark-text-secondary mb-1 uppercase tracking-wider">Reels</label>
-            <p className="mb-2 text-xs text-dark-text-secondary">סרטונים אנכיים בלבד</p>
+            <p className="mb-2 text-xs text-dark-text-secondary">סרטונים אנכיים בלבד. העלאות חדשות נשמרות כטיוטה עד פרסום.</p>
             <input
               ref={reelFileRef}
               type="file"
@@ -396,7 +430,12 @@ export default function AdminProfileForm({ profile, onSaved, onCancel }: Props) 
                 <SortableContext items={mediaItems.filter((item) => item.section === "reel").map((item) => item.s3Key)} strategy={rectSortingStrategy}>
                   <div className="grid grid-cols-4 gap-2">
                     {mediaItems.filter((item) => item.section === "reel").map((item) => (
-                      <SortableMediaItem key={item.s3Key} item={item} onDelete={() => handleDeleteMedia(item.s3Key)} />
+                      <SortableMediaItem
+                        key={item.s3Key}
+                        item={item}
+                        onDelete={() => handleDeleteMedia(item.s3Key)}
+                        onTogglePublication={() => toggleReelPublication(item.s3Key)}
+                      />
                     ))}
                   </div>
                 </SortableContext>

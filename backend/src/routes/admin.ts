@@ -12,6 +12,7 @@ import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
 import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls, getSignedMediaUrl } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
 import { generateImageThumbnail } from "../services/imageThumbnail";
+import { validateUploadedMedia } from "../services/mediaValidation";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -36,6 +37,10 @@ const PROFILE_MUTABLE_FIELDS = [
   "isVerified",
 ] as const;
 
+function isProfileStorageKey(key: unknown): key is string {
+  return typeof key === "string" && key.startsWith("profiles/") && !key.includes("..") && !key.includes("\\");
+}
+
 function pickProfileData(body: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     PROFILE_MUTABLE_FIELDS
@@ -57,10 +62,15 @@ function validateAndNormalizeMedia(data: Record<string, unknown>): string | unde
     if (section !== "post" && section !== "reel") return "media section must be post or reel";
     if (media.type !== "image" && media.type !== "video") return "media type must be image or video";
     if (section === "reel" && media.type !== "video") return "reels must be videos";
-    if (typeof media.s3Key !== "string" || !media.s3Key.startsWith("profiles/")) {
+    if (section === "reel" && media.isPublished !== undefined && typeof media.isPublished !== "boolean") {
+      return "reel publication status must be true or false";
+    }
+    if (!isProfileStorageKey(media.s3Key)) {
       return "media must reference profile storage";
     }
     media.section = section;
+    // Legacy reels were already public before draft support existed.
+    if (section === "reel" && media.isPublished === undefined) media.isPublished = true;
   }
 
   return undefined;
@@ -106,7 +116,11 @@ function csvValue(value: unknown): string {
 
 router.post("/login", (req: Request, res: Response) => {
   const { password } = req.body;
-  if (password !== process.env.ADMIN_PASSWORD) {
+  if (!process.env.ADMIN_PASSWORD || !process.env.JWT_SECRET) {
+    res.status(503).json({ error: "Admin authentication is not configured" });
+    return;
+  }
+  if (typeof password !== "string" || password !== process.env.ADMIN_PASSWORD) {
     res.status(401).json({ error: "Invalid password" });
     return;
   }
@@ -118,7 +132,7 @@ router.get("/profiles", adminAuth, async (_req: Request, res: Response) => {
   try {
     const profiles = await Profile.find({}).sort({ order: 1, createdAt: -1 }).lean();
     const signed = await Promise.all(
-      profiles.map((profile) => signProfileUrls(profile, { includeStorageKeys: true }))
+      profiles.map((profile) => signProfileUrls(profile, { includeStorageKeys: true, includeDraftReels: true }))
     );
     res.json(signed);
   } catch (err) {
@@ -237,7 +251,7 @@ router.put("/profiles/:id", adminAuth, async (req: Request, res: Response) => {
       res.status(409).json({ error: "Profile changed during save. Reload and try again." });
       return;
     }
-    const signed = await signProfileUrls(profile, { includeStorageKeys: true });
+    const signed = await signProfileUrls(profile, { includeStorageKeys: true, includeDraftReels: true });
     res.json(signed);
   } catch (err) {
     console.error("PUT /api/admin/profiles/:id error:", err);
@@ -292,16 +306,14 @@ router.post(
         res.status(400).json({ error: "Profile images must be image files" });
         return;
       }
-      if (
-        folder === "media" &&
-        !req.file.mimetype.startsWith("image/") &&
-        !req.file.mimetype.startsWith("video/")
-      ) {
-        res.status(400).json({ error: "Posts must be image or video files" });
+      const expectedKind = folder === "avatar" || !req.file.mimetype.startsWith("video/") ? "image" : "video";
+      if (section === "reel" && expectedKind !== "video") {
+        res.status(400).json({ error: "Reels must be video files" });
         return;
       }
-      if (section === "reel" && !req.file.mimetype.startsWith("video/")) {
-        res.status(400).json({ error: "Reels must be video files" });
+      const mediaValidation = validateUploadedMedia(req.file, expectedKind);
+      if ("error" in mediaValidation) {
+        res.status(400).json({ error: mediaValidation.error });
         return;
       }
 
@@ -319,7 +331,8 @@ router.post(
       const key = await uploadToS3(
         req.file,
         s3ProfileId,
-        folder === "avatar" ? "avatar" : "media"
+        folder === "avatar" ? "avatar" : "media",
+        mediaValidation.extension
       );
 
       let thumbnail: string | undefined;
@@ -358,6 +371,10 @@ router.post(
 router.delete("/media/:key(*)", adminAuth, async (req: Request, res: Response) => {
   try {
     const key = Array.isArray(req.params.key) ? req.params.key.join("/") : req.params.key;
+    if (!isProfileStorageKey(key)) {
+      res.status(400).json({ error: "Invalid profile media key" });
+      return;
+    }
     await deleteFromS3(key);
     res.json({ success: true });
   } catch (err) {

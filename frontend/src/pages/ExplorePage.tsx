@@ -24,6 +24,10 @@ export default function ExplorePage() {
     { key: "popular", label: t("tabPopular"), icon: "💎" },
     { key: "new", label: t("tabNew"), icon: "🌟" },
   ];
+  const reelCount = profiles.reduce(
+    (count, profile) => count + profile.media.filter((media) => media.section === "reel").length,
+    0
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -80,6 +84,22 @@ export default function ExplorePage() {
       </header>
 
       {giftOpen && <GiftPopup onClose={() => setGiftOpen(false)} />}
+
+      {reelCount > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate("/reels")}
+          className="mx-4 mb-3 flex items-center justify-between rounded-2xl border border-white/20 bg-gradient-to-r from-fuchsia-700 via-purple-700 to-indigo-700 px-4 py-3 text-left text-white shadow-lg transition hover:border-white/40"
+        >
+          <span>
+            <span className="block text-sm font-semibold">Telescope Reels</span>
+            <span className="mt-0.5 block text-xs text-white/75">{reelCount} videos from creators</span>
+          </span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-sm text-purple-800" aria-hidden="true">
+            ▶
+          </span>
+        </button>
+      )}
 
       {/* Gift floating button */}
       <button
