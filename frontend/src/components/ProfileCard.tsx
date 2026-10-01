@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { Profile } from "../api/client";
 
 interface Props {
@@ -8,41 +7,13 @@ interface Props {
 
 export default function ProfileCard({ profile, onClick }: Props) {
   const imageUrl = profile.profileImageThumbUrl || profile.profileImageUrl || "";
-  const teaser = profile.media.find(
-    (media) => media.type === "video" && media.section === "post" && media.url,
-  );
-  const [showTeaser, setShowTeaser] = useState(false);
-  const labels = profile.tags
-    .map((tag) => tag.trim().toLowerCase())
-    .map((tag) => (tag === "sale" ? "on sale" : tag))
-    .filter((tag) => tag === "new" || tag === "hot" || tag === "on sale");
-
-  function handleClick() {
-    if (teaser && !showTeaser) {
-      setShowTeaser(true);
-      return;
-    }
-    onClick();
-  }
 
   return (
     <button
-      type="button"
-      onClick={handleClick}
-      aria-label={showTeaser ? `Open ${profile.name}'s profile` : `Preview ${profile.name}`}
+      onClick={onClick}
       className="relative aspect-[3/4] overflow-hidden rounded-xl group cursor-pointer border-0 p-0 bg-transparent w-full"
     >
-      {showTeaser && teaser?.url ? (
-        <video
-          src={teaser.url}
-          poster={teaser.thumbnailUrl || imageUrl}
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
-      ) : imageUrl ? (
+      {imageUrl ? (
         <img
           src={imageUrl}
           alt={profile.name}
@@ -54,22 +25,6 @@ export default function ProfileCard({ profile, onClick }: Props) {
           👤
         </div>
       )}
-      <div className="absolute left-2 top-2 flex flex-wrap gap-1">
-        {labels.map((label) => (
-          <span
-            key={label}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-              label === "hot"
-                ? "bg-red-500 text-white"
-                : label === "on sale"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-white text-black"
-            }`}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
         <div className="flex items-center gap-1.5">
@@ -86,11 +41,6 @@ export default function ProfileCard({ profile, onClick }: Props) {
             </svg>
           )}
         </div>
-        {teaser && (
-          <span className="mt-1 block text-xs text-white/75">
-            {showTeaser ? "Tap to open profile" : "Tap to preview"}
-          </span>
-        )}
       </div>
     </button>
   );

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { MediaItem, Profile } from "../api/client";
-import ContentSwitch from "../components/ContentSwitch";
+import BottomAppBar from "../components/BottomAppBar";
 import ReelVideo from "../components/ReelVideo";
 import type { AudioMode } from "../components/ReelVideo";
 
@@ -51,7 +51,7 @@ export default function ReelsPage() {
 
   if (loading || loadError || reels.length === 0) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-dark-bg px-4 text-center">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-dark-bg px-4 pb-20 text-center">
         {loading ? (
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" aria-label="Loading reels" />
         ) : loadError ? (
@@ -71,22 +71,17 @@ export default function ReelsPage() {
             <p className="mt-1 text-sm text-dark-text-secondary">Check back soon for new videos.</p>
           </>
         )}
-        <div className="mt-6">
-          <ContentSwitch active="reels" />
-        </div>
+        <BottomAppBar active="reels" />
       </main>
     );
   }
 
   return (
-    <main className="h-[100dvh] snap-y snap-mandatory overflow-y-auto bg-black">
-      <div className="fixed right-3 top-3 z-20">
-        <ContentSwitch active="reels" />
-      </div>
+    <main className="h-[100dvh] snap-y snap-mandatory overflow-y-auto bg-black pb-[calc(4rem+env(safe-area-inset-bottom))]">
       {reels.map(({ profile, media }, index) => (
         <article
           key={media._id}
-          className="relative h-[100dvh] snap-start bg-black"
+          className="relative h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] snap-start bg-black"
           aria-label={`Reel ${index + 1} by ${profile.name}`}
         >
           {media.url ? (
@@ -128,6 +123,7 @@ export default function ReelsPage() {
           </button>
         </article>
       ))}
+      <BottomAppBar active="reels" />
     </main>
   );
 }

@@ -6,50 +6,37 @@ import ProfileCard from "../components/ProfileCard";
 import IdlePopup from "../components/IdlePopup";
 import GiftPopup from "../components/GiftPopup";
 import { useLocale } from "../i18n/useLocale";
-import ContentSwitch from "../components/ContentSwitch";
-
-function shuffleProfiles(profiles: Profile[]): Profile[] {
-  const shuffled = [...profiles];
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-  }
-  return shuffled;
-}
+import BottomAppBar from "../components/BottomAppBar";
 
 export default function ExplorePage() {
   const navigate = useNavigate();
   const { t } = useLocale();
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [giftOpen, setGiftOpen] = useState(false);
 
+  const tabs = [
+    { key: "", label: t("tabAll"), icon: "✨" },
+    { key: "trending", label: t("tabTrending"), icon: "🔥" },
+    { key: "popular", label: t("tabPopular"), icon: "💎" },
+    { key: "new", label: t("tabNew"), icon: "🌟" },
+  ];
+
   useEffect(() => {
-    let cancelled = false;
+    setLoading(true);
+    setLoadError("");
     api
-      .getProfiles(undefined, search.trim() || undefined)
-      .then((items) => {
-        if (!cancelled) {
-          setProfiles(shuffleProfiles(items));
-          setLoadError("");
-        }
-      })
+      .getProfiles(activeTab || undefined)
+      .then(setProfiles)
       .catch((error) => {
-        if (!cancelled) {
-          console.error(error);
-          setLoadError("לא ניתן לטעון את הפרופילים כרגע. נסו שוב.");
-        }
+        console.error(error);
+        setLoadError("לא ניתן לטעון את הפרופילים כרגע. נסו שוב.");
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadKey, search]);
+      .finally(() => setLoading(false));
+  }, [activeTab, reloadKey]);
 
   return (
     <div className="flex flex-col min-h-screen bg-dark-bg">
@@ -72,19 +59,24 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      <header className="space-y-3 px-4 pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold text-white">Telescope exclusive content</h1>
-          <ContentSwitch active="creators" />
+      <header className="px-4 pb-2">
+        <h1 className="mb-2 text-lg font-semibold text-white">Telescope exclusive content</h1>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border cursor-pointer ${
+                activeTab === tab.key
+                  ? "bg-white text-black border-white"
+                  : "bg-dark-surface text-dark-text border-dark-border hover:border-dark-text-secondary"
+              }`}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search creators"
-          aria-label="Search creators"
-          className="w-full rounded-xl border border-dark-border bg-dark-surface px-3 py-2.5 text-sm text-white outline-none placeholder:text-dark-text-secondary focus:border-white"
-        />
       </header>
 
       {giftOpen && <GiftPopup onClose={() => setGiftOpen(false)} />}
@@ -114,7 +106,7 @@ export default function ExplorePage() {
         }
       `}</style>
 
-      <main className="flex-1 px-2 pb-6">
+      <main className="flex-1 px-2 pb-20">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -155,6 +147,7 @@ export default function ExplorePage() {
           </div>
         )}
       </main>
+      <BottomAppBar active="catalog" />
     </div>
   );
 }
