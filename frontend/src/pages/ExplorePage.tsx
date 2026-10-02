@@ -9,40 +9,63 @@ import ExploreGuide from "../components/ExploreGuide";
 import { useLocale } from "../i18n/useLocale";
 import BottomAppBar from "../components/BottomAppBar";
 
+const GUIDE_DISMISSED_KEY = "telescope-explore-guide-dismissed";
+
 export default function ExplorePage() {
   const navigate = useNavigate();
   const { t } = useLocale();
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [activeTab, setActiveTab] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [giftOpen, setGiftOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
-  const tabs = [
-    { key: "", label: t("tabAll"), icon: "✨" },
-    { key: "trending", label: t("tabTrending"), icon: "🔥" },
-    { key: "popular", label: t("tabPopular"), icon: "💎" },
-    { key: "new", label: t("tabNew"), icon: "🌟" },
-  ];
-  const reelCount = profiles.reduce(
-    (count, profile) => count + profile.media.filter((media) => media.section === "reel").length,
-    0
-  );
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
 
   useEffect(() => {
+    let isCurrent = true;
+    // The catalog must announce a new request before its response arrives.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setLoadError("");
     api
-      .getProfiles(activeTab || undefined)
-      .then(setProfiles)
-      .catch((error) => {
-        console.error(error);
-        setLoadError("לא ניתן לטעון את הפרופילים כרגע. נסו שוב.");
+      .getProfiles(undefined, debouncedSearch || undefined)
+      .then((data) => {
+        if (isCurrent) setProfiles(data);
       })
-      .finally(() => setLoading(false));
-  }, [activeTab, reloadKey]);
+      .catch((error) => {
+        if (!isCurrent) return;
+        console.error(error);
+        setLoadError(debouncedSearch ? "לא ניתן לבצע את החיפוש כרגע. נסו שוב." : "לא ניתן לטעון את הפרופילים כרגע. נסו שוב.");
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [debouncedSearch, reloadKey]);
+
+  useEffect(() => {
+    if (loading || localStorage.getItem(GUIDE_DISMISSED_KEY)) return;
+    const timeout = window.setTimeout(() => setGuideOpen(true), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loading]);
+
+  function closeGuide() {
+    localStorage.setItem(GUIDE_DISMISSED_KEY, "true");
+    setGuideOpen(false);
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-dark-bg">
@@ -65,58 +88,66 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      <header className="px-4 pb-2">
-        <h1 className="mb-2 text-lg font-semibold text-white">Telescope exclusive content</h1>
-        <div className="flex items-center gap-2">
-          <div className="flex flex-1 gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border cursor-pointer ${
-                  activeTab === tab.key
-                    ? "bg-white text-black border-white"
-                    : "bg-dark-surface text-dark-text border-dark-border hover:border-dark-text-secondary"
-                }`}
-              >
-                <span>{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </div>
+      <header className="px-4 pb-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold text-white">Telescope exclusive content</h1>
           <button
             type="button"
             onClick={() => setGuideOpen(true)}
-            aria-label="איך משתמשים ב-Telescope"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dark-border bg-dark-surface text-sm font-semibold text-dark-text transition hover:text-white"
+            className="shrink-0 rounded-full border border-dark-border bg-dark-surface px-3 py-1.5 text-xs font-medium text-dark-text transition hover:border-dark-text-secondary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            ?
+            איך זה עובד
           </button>
+        </div>
+        <div className="relative">
+          <label htmlFor="catalog-search" className="sr-only">
+            {t("searchLabel")}
+          </label>
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-dark-text-secondary"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m16 16 4 4" />
+          </svg>
+          <input
+            id="catalog-search"
+            data-guide="catalog-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("searchPlaceholder")}
+            className="w-full rounded-2xl border border-dark-border bg-dark-card py-3 pl-11 pr-11 text-sm text-white outline-none transition placeholder:text-dark-text-secondary focus:border-white/70 focus:ring-2 focus:ring-white/15"
+            autoComplete="off"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label={t("clearSearch")}
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-dark-text-secondary transition hover:bg-dark-surface hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            </button>
+          )}
         </div>
       </header>
 
       {giftOpen && <GiftPopup onClose={() => setGiftOpen(false)} />}
-      {guideOpen && <ExploreGuide onClose={() => setGuideOpen(false)} />}
-
-      {reelCount > 0 && (
-        <button
-          type="button"
-          onClick={() => navigate("/reels")}
-          className="mx-4 mb-3 flex items-center justify-between rounded-2xl border border-white/20 bg-gradient-to-r from-fuchsia-700 via-purple-700 to-indigo-700 px-4 py-3 text-left text-white shadow-lg transition hover:border-white/40"
-        >
-          <span>
-            <span className="block text-sm font-semibold">Telescope Reels</span>
-            <span className="mt-0.5 block text-xs text-white/75">{reelCount} videos from creators</span>
-          </span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-sm text-purple-800" aria-hidden="true">
-            ▶
-          </span>
-        </button>
-      )}
+      {guideOpen && <ExploreGuide onClose={closeGuide} />}
 
       {/* Gift floating button */}
       <button
+        type="button"
         onClick={() => setGiftOpen(true)}
+        data-guide="gift-action"
+        aria-label="בחירת הטבה"
         className="fixed z-50 flex items-center justify-center rounded-full text-white shadow-2xl border-0 cursor-pointer"
         style={{
           bottom: "4rem",
@@ -139,7 +170,7 @@ export default function ExplorePage() {
         }
       `}</style>
 
-      <main className="flex-1 px-2 pb-20">
+      <main className="flex-1 px-2 pb-20" aria-busy={loading}>
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -163,7 +194,16 @@ export default function ExplorePage() {
             >
               <path d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
             </svg>
-            <p className="text-sm">{t("noProfiles")}</p>
+            <p className="text-sm">{debouncedSearch ? t("noSearchResults") : t("noProfiles")}</p>
+            {debouncedSearch && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="mt-4 rounded-lg border border-dark-border bg-dark-surface px-4 py-2 text-sm text-white transition hover:border-dark-text-secondary"
+              >
+                {t("clearSearch")}
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-w-5xl mx-auto">
@@ -171,6 +211,7 @@ export default function ExplorePage() {
               <ProfileCard
                 key={profile._id}
                 profile={profile}
+                guideTarget={profiles[0]?._id === profile._id}
                 onClick={() => {
                   api.trackProfileClick(profile._id);
                   navigate(`/profile/${profile._id}`);

@@ -3,14 +3,17 @@ import type { Profile } from "../api/client";
 interface Props {
   profile: Profile;
   onClick: () => void;
+  guideTarget?: boolean;
 }
 
-export default function ProfileCard({ profile, onClick }: Props) {
+export default function ProfileCard({ profile, onClick, guideTarget = false }: Props) {
   const imageUrl = profile.profileImageThumbUrl || profile.profileImageUrl || "";
 
   return (
     <button
       onClick={onClick}
+      data-guide={guideTarget ? "creator-card" : undefined}
+      aria-label={`Open ${profile.name}'s profile`}
       className="relative aspect-[3/4] overflow-hidden rounded-xl group cursor-pointer border-0 p-0 bg-transparent w-full"
     >
       {imageUrl ? (

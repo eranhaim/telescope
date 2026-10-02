@@ -36,6 +36,26 @@ body {
   width: 0;
 }
 
+.mode-switcher {
+  background: linear-gradient(100deg, #ff4677 0%, #ffbf45 28%, #59dfc4 54%, #53a8ff 75%, #b579ff 100%);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 28%);
+}
+
+.mode-switcher__item {
+  background: rgb(24 24 27 / 96%);
+}
+
+.mode-switcher__item--active {
+  background: #fafaff;
+  color: #17121d;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 24%);
+}
+
+.mode-switcher__item--active .mode-switcher__icon {
+  filter: drop-shadow(-3px 0 0 rgb(255 73 119 / 78%))
+    drop-shadow(3px 0 0 rgb(78 181 255 / 72%));
+}
+
 .reel-timeline {
   --reel-progress: 0%;
   --reel-buffered: 0%;
@@ -102,4 +122,15 @@ body {
   0% { background-position: 200% 0; }
   50% { background-position: 0% 0; }
   100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
