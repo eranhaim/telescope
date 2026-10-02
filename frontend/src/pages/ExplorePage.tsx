@@ -90,7 +90,7 @@ export default function ExplorePage() {
 
       <header className="px-4 pb-3">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold text-white">Telescope exclusive content</h1>
+          <h1 className="min-w-0 truncate text-lg font-semibold text-white">Telescope exclusive content</h1>
           <button
             type="button"
             onClick={() => setGuideOpen(true)}

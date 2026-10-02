@@ -121,7 +121,7 @@ export default function ExploreGuide({ onClose }: Props) {
         aria-describedby="guide-description"
         dir="rtl"
         onKeyDown={handleKeyDown}
-        className="fixed inset-x-3 z-[92] mx-auto max-w-sm rounded-2xl border border-white/15 bg-dark-card p-5 text-right shadow-2xl"
+        className="fixed left-1/2 z-[92] w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 rounded-2xl border border-white/15 bg-dark-card p-5 text-right shadow-2xl"
         style={{ top: bubbleTop }}
       >
         <p className="text-xs font-medium text-dark-text-secondary" aria-live="polite">
