@@ -5,6 +5,7 @@ import type { MediaItem, Profile } from "../api/client";
 import BottomAppBar from "../components/BottomAppBar";
 import ReelVideo from "../components/ReelVideo";
 import type { AudioMode } from "../components/ReelVideo";
+import { orderForVisit } from "../lib/visitOrder";
 
 interface Reel {
   profile: Profile;
@@ -24,7 +25,7 @@ export default function ReelsPage() {
       .getProfiles(undefined, undefined, "reel")
       .then((profiles) => {
         setReels(
-          profiles.flatMap((profile) =>
+          orderForVisit(profiles, (profile) => profile._id).flatMap((profile) =>
             profile.media
               .filter((media) => media.section === "reel")
               .sort((a, b) => a.order - b.order)

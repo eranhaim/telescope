@@ -6,6 +6,7 @@ import ProfileCard from "../components/ProfileCard";
 import IdlePopup from "../components/IdlePopup";
 import GiftPopup from "../components/GiftPopup";
 import ExploreGuide from "../components/ExploreGuide";
+import { orderForVisit } from "../lib/visitOrder";
 import { useLocale } from "../i18n/useLocale";
 import BottomAppBar from "../components/BottomAppBar";
 
@@ -40,7 +41,7 @@ export default function ExplorePage() {
     api
       .getProfiles(undefined, debouncedSearch || undefined)
       .then((data) => {
-        if (isCurrent) setProfiles(data);
+        if (isCurrent) setProfiles(orderForVisit(data, (profile) => profile._id));
       })
       .catch((error) => {
         if (!isCurrent) return;
