@@ -6,6 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "test": "node --import tsx --test tests/telegramBroadcast.test.ts",
     "broadcast:test": "tsx scripts/test-broadcast.ts"
   },
   "dependencies": {

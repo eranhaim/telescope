@@ -344,7 +344,7 @@ export const api = {
     return request("/admin/broadcast/status", { headers: authHeaders() });
   },
 
-  adminBroadcastHistory(): Promise<{ _id: string; message: string; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]> {
+  adminBroadcastHistory(): Promise<{ _id: string; message: string; hasImage?: boolean; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]> {
     return request("/admin/broadcast/history", { headers: authHeaders() });
   },
 

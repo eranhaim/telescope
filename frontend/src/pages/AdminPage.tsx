@@ -211,7 +211,7 @@ export default function AdminPage() {
   const [broadcastImagePreview, setBroadcastImagePreview] = useState<string | null>(null);
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
-  const [broadcastHistory, setBroadcastHistory] = useState<{ _id: string; message: string; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]>([]);
+  const [broadcastHistory, setBroadcastHistory] = useState<{ _id: string; message: string; hasImage?: boolean; sent: number; failed: number; total: number; startedAt: string; completedAt?: string }[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -876,6 +876,7 @@ export default function AdminPage() {
                     <div className="flex justify-between mb-1">
                       <span className="text-dark-text-secondary">
                         {new Date(b.startedAt).toLocaleDateString("he-IL")} {new Date(b.startedAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                        {b.hasImage && <span className="text-dark-text-secondary mr-2" title="נשלח עם תמונה">🖼</span>}
                       </span>
                       <div className="flex items-center gap-2">
                         <span>

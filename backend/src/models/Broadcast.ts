@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IBroadcast extends Document {
   message: string;
-  imageS3Key?: string;
+  hasImage: boolean;
   sent: number;
   failed: number;
   total: number;
@@ -12,7 +12,9 @@ export interface IBroadcast extends Document {
 
 const BroadcastSchema = new Schema<IBroadcast>({
   message: { type: String, required: true },
-  imageS3Key: { type: String },
+  // Broadcasts sent before 2026-10 recorded the image as an S3 key instead;
+  // those documents have neither field.
+  hasImage: { type: Boolean, default: false },
   sent: { type: Number, default: 0 },
   failed: { type: Number, default: 0 },
   total: { type: Number, default: 0 },

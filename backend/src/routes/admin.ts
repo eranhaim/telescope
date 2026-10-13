@@ -9,10 +9,17 @@ import Broadcast from "../models/Broadcast";
 import BroadcastMessage from "../models/BroadcastMessage";
 import ProfileRevision from "../models/ProfileRevision";
 import { adminAuth, generateAdminToken } from "../middleware/adminAuth";
-import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls, getSignedMediaUrl } from "../services/s3";
+import { uploadToS3, uploadBufferToS3, deleteFromS3, signProfileUrls } from "../services/s3";
 import { extractVideoThumbnail } from "../services/thumbnail";
 import { generateImageThumbnail } from "../services/imageThumbnail";
 import { validateUploadedMedia } from "../services/mediaValidation";
+import {
+  sendBroadcastText,
+  sendBroadcastPhoto,
+  isMessageRejected,
+  BroadcastPhoto,
+  SendOutcome,
+} from "../services/telegramBroadcast";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -698,7 +705,9 @@ router.post("/broadcast", adminAuth, upload.single("image"), async (req: Request
       res.status(400).json({ error: "Message is required" });
       return;
     }
+    const text = message.trim();
 
+    let photo: BroadcastPhoto | undefined;
     if (req.file) {
       if (req.file.size > TELEGRAM_PHOTO_MAX_BYTES) {
         res.status(400).json({
@@ -706,15 +715,25 @@ router.post("/broadcast", adminAuth, upload.single("image"), async (req: Request
         });
         return;
       }
-      if (message.trim().length > TELEGRAM_CAPTION_MAX_CHARS) {
+      if (text.length > TELEGRAM_CAPTION_MAX_CHARS) {
         res.status(400).json({
-          error: `Message is ${message.trim().length} characters. Telegram allows ${TELEGRAM_CAPTION_MAX_CHARS} when an image is attached, ${TELEGRAM_TEXT_MAX_CHARS} without.`,
+          error: `Message is ${text.length} characters. Telegram allows ${TELEGRAM_CAPTION_MAX_CHARS} when an image is attached, ${TELEGRAM_TEXT_MAX_CHARS} without.`,
         });
         return;
       }
-    } else if (message.trim().length > TELEGRAM_TEXT_MAX_CHARS) {
+      const imageValidation = validateUploadedMedia(req.file, "image");
+      if ("error" in imageValidation) {
+        res.status(400).json({ error: imageValidation.error });
+        return;
+      }
+      photo = {
+        buffer: req.file.buffer,
+        filename: `broadcast.${imageValidation.extension}`,
+        contentType: imageValidation.mimeType,
+      };
+    } else if (text.length > TELEGRAM_TEXT_MAX_CHARS) {
       res.status(400).json({
-        error: `Message is ${message.trim().length} characters. Telegram allows ${TELEGRAM_TEXT_MAX_CHARS}.`,
+        error: `Message is ${text.length} characters. Telegram allows ${TELEGRAM_TEXT_MAX_CHARS}.`,
       });
       return;
     }
@@ -730,61 +749,64 @@ router.post("/broadcast", adminAuth, upload.single("image"), async (req: Request
       return;
     }
 
-    let imageS3Key: string | undefined;
-    if (req.file) {
-      imageS3Key = await uploadToS3(req.file, "broadcast", "media");
-    }
-
     const users = await TelegramUser.find({}, { telegramId: 1 }).lean();
     broadcastStatus = { sending: true, sent: 0, failed: 0, total: users.length };
 
-    const broadcast = await Broadcast.create({ message: message.trim(), imageS3Key, total: users.length, startedAt: new Date() });
+    const broadcast = await Broadcast.create({ message: text, hasImage: Boolean(photo), total: users.length, startedAt: new Date() });
     res.json({ started: true, total: users.length });
 
     (async () => {
       const messageDocs: { broadcastId: unknown; chatId: number; messageId: number; sentAt: Date }[] = [];
+      // Telegram's handle for the photo, once its bytes have been uploaded once.
+      let photoFileId: string | undefined;
 
       try {
-        // Signed once for the whole run — Telegram re-fetches the URL for every recipient.
-        const imageUrl = imageS3Key ? await getSignedMediaUrl(imageS3Key) : undefined;
-
         for (let i = 0; i < users.length; i++) {
+          const chatId = users[i].telegramId;
+
+          let outcome: SendOutcome;
           try {
-            let resp: globalThis.Response;
-            if (imageUrl) {
-              resp = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: users[i].telegramId, photo: imageUrl, caption: message.trim() }),
-              });
-            } else {
-              resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: users[i].telegramId, text: message.trim() }),
-              });
-            }
-            if (resp.ok) {
-              broadcastStatus.sent++;
-              const data = await resp.json().catch(() => null) as { result?: { message_id?: number } } | null;
-              if (data?.result?.message_id) {
-                messageDocs.push({
-                  broadcastId: broadcast._id,
-                  chatId: users[i].telegramId,
-                  messageId: data.result.message_id,
-                  sentAt: new Date(),
-                });
-              }
-            } else {
-              broadcastStatus.failed++;
-              if (broadcastStatus.failed <= 10) {
-                const body = await resp.json().catch(() => ({}));
-                console.error(`Broadcast fail [${users[i].telegramId}]: ${resp.status} ${JSON.stringify(body)}`);
-              }
-            }
-          } catch {
-            broadcastStatus.failed++;
+            outcome = photo
+              ? await sendBroadcastPhoto(token, chatId, text, photo, photoFileId)
+              : await sendBroadcastText(token, chatId, text);
+          } catch (err) {
+            outcome = { ok: false, status: 0, description: err instanceof Error ? err.message : "request failed" };
           }
+
+          if (outcome.ok) {
+            broadcastStatus.sent++;
+            if (outcome.photoFileId) photoFileId = outcome.photoFileId;
+            if (photo && broadcastStatus.sent === 1) {
+              // Without a file_id the photo is re-uploaded for every remaining
+              // recipient, which is worth seeing in the log rather than guessing.
+              console.log(
+                photoFileId
+                  ? "Broadcast photo uploaded, reusing its file_id for the rest"
+                  : "Broadcast photo sent but Telegram returned no file_id, so it is uploaded per recipient"
+              );
+            }
+            if (outcome.messageId) {
+              messageDocs.push({
+                broadcastId: broadcast._id,
+                chatId,
+                messageId: outcome.messageId,
+                sentAt: new Date(),
+              });
+            }
+          } else {
+            broadcastStatus.failed++;
+            if (broadcastStatus.failed <= 10) {
+              console.error(`Broadcast fail [${chatId}]: ${outcome.status} ${outcome.description}`);
+            }
+            // Nothing has been uploaded yet and Telegram refused the message
+            // itself, so it will refuse it for everyone. Stop instead of
+            // re-uploading the same rejected photo for all 27k recipients.
+            if (photo && !photoFileId && isMessageRejected(outcome)) {
+              console.error(`Broadcast aborted, Telegram rejected the photo: ${outcome.description}`);
+              break;
+            }
+          }
+
           if ((i + 1) % 100 === 0) {
             broadcast.sent = broadcastStatus.sent;
             broadcast.failed = broadcastStatus.failed;
